@@ -14,9 +14,11 @@
 <link rel="alternate" hreflang="hr" href="https://mobile-home-privlaka.com/?lang=hr">
 <link rel="alternate" hreflang="sl" href="https://mobile-home-privlaka.com/?lang=sl">
 <link rel="alternate" hreflang="x-default" href="https://mobile-home-privlaka.com/">
+<link rel="canonical" href="https://mobile-home-privlaka.com/">
 
 <!-- Vorschau beim Teilen (WhatsApp, Facebook …) -->
 <meta property="og:type" content="website">
+<meta property="og:url" content="https://mobile-home-privlaka.com/">
 <meta property="og:locale" content="de_DE">
 <meta property="og:locale:alternate" content="en_GB">
 <meta property="og:locale:alternate" content="hr_HR">
@@ -75,7 +77,7 @@
         <span class="badge" data-i18n="hero.b2">Überdachte Terrasse</span>
         <span class="badge" data-i18n="hero.b3">Camp direkt am Meer</span>
       </div>
-      <h1 data-i18n-html="hero.title">Dein Platz <em>am Meer</em></h1>
+      <h1 data-i18n-html="hero.title">Dein Ort <em>am Meer</em></h1>
       <p class="hero-loc">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
         <span data-i18n="place">Dalmacija Camp, Privlaka · Kroatien</span>
@@ -98,11 +100,11 @@
     </div>
     <div class="fact">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 16c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><path d="M2 20c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><path d="M4 12c2-2 4-2 6 0s4 2 6 0 3.5-1.8 5-1"/></svg>
-      <div><b data-i18n="fact.sea">Direkt am Meer</b><span data-i18n="fact.seaSub">Sand- &amp; Kiesbucht am Camp</span></div>
+      <div><b data-i18n="fact.sea">Direkt am Meer</b><span data-i18n="fact.seaSub">Flache Sandbucht am Camp</span></div>
     </div>
     <div class="fact">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="7" cy="21" r="1"/><circle cx="17" cy="21" r="1"/><path d="M5 11V7a7 7 0 0 1 14 0v4"/></svg>
-      <div><b data-i18n="fact.park">Eigener Stellplatz</b><span data-i18n="fact.parkSub">direkt am Mobile Home</span></div>
+      <div><b data-i18n="fact.park">Eigener Parkplatz</b><span data-i18n="fact.parkSub">direkt am Mobile Home</span></div>
     </div>
   </div>
 </header>
@@ -379,7 +381,7 @@
   const nightsBetween = (a, b) => Math.round((b - a) / MS_TAG);
   const fmt = d => d.toLocaleDateString(I18N.locale, { weekday:"short", day:"2-digit", month:"short", year:"numeric" });
   const fmtShort = d => d.toLocaleDateString(I18N.locale, { day:"2-digit", month:"2-digit", year:"numeric" });
-  const euro = n => new Intl.NumberFormat(I18N.locale, { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n);
+  const euro = n => new Intl.NumberFormat(I18N.locale, { style: "currency", currency: "EUR", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n);
   const gross = s => s.charAt(0).toUpperCase() + s.slice(1);
   const monatTitel = (y, m) => gross(new Intl.DateTimeFormat(I18N.locale, { month: "long", year: "numeric" }).format(new Date(y, m, 1)));
   const wochentage = () => Array.from({ length: 7 }, (_, i) =>
@@ -389,7 +391,7 @@
   /* ---------- Saisons, Preise, Verfügbarkeit ----------
      Preise & Regeln werden in der Verwaltung gepflegt und kommen über die API.
      Solange sie fehlen (API nicht erreichbar), ist P = null: Anfrage geht, aber ohne Preisanzeige. */
-  let P = null, saisons = [], horizont;
+  let P = null, saisons = [], horizont, maxNaechte = 60;
   function setzePreise(p){
     P = p || null;
     saisons = P ? (P.saisons || []) : [];
@@ -443,7 +445,7 @@
   });
   const menueZu = () => { nav.classList.remove("open"); navToggle.setAttribute("aria-expanded", false); navToggle.setAttribute("aria-label", t("nav.menuOpen")); };
   $("nav-links").addEventListener("click", e => { if (e.target.closest("a")) menueZu(); });
-  $("lang").addEventListener("click", menueZu);                                         // Sprachmenü öffnen → Seitenmenü zu
+  $("lang").addEventListener("click", menueZu, true);                                   // Sprachmenü öffnen → Seitenmenü zu
   document.addEventListener("click", e => { if (!nav.contains(e.target)) menueZu(); });  // Tipp daneben
   document.addEventListener("keydown", e => { if (e.key === "Escape" && nav.classList.contains("open")) { menueZu(); navToggle.focus(); } });
 
@@ -473,11 +475,11 @@
   const bild = (f, g) => `images/fotos/${f.id}-${g}.jpg`;
   let kat = "alle";
   const sichtbar = () => FOTOS.filter(f => kat === "alle" || f.kat === kat);
-  const creditText = c => "Foto: " + c.autor + " · " + c.lizenz;
+  const creditText = c => t("gal.photoBy") + ": " + c.autor + " · " + c.lizenz;
 
   function renderGalerie(){
     $("gal-filter").innerHTML = KATS.map(k => {
-      const n = k === "alle" ? FOTOS.length : FOTOS.filter(f => f.kat === k).length;
+      const n = FOTOS.filter(f => !f.nurGross && (k === "alle" || f.kat === k)).length;
       return `<button type="button" class="chip" data-kat="${k}" aria-pressed="${k === kat}">${t(k === "alle" ? "gal.all" : "gal.cat." + k)}<span class="n">${n}</span></button>`;
     }).join("");
     $("gal-grid").innerHTML = sichtbar().filter(f => !f.nurGross).map(f => {
@@ -490,7 +492,11 @@
         <span class="cap">${cap}</span>${f.credit ? `<span class="credit">${creditText(f.credit)}</span>` : ""}</button>`;
     }).join("");
   }
-  $("gal-filter").addEventListener("click", e => { const b = e.target.closest("[data-kat]"); if (!b) return; kat = b.dataset.kat; renderGalerie(); });
+  $("gal-filter").addEventListener("click", e => {
+    const b = e.target.closest("[data-kat]"); if (!b) return;
+    kat = b.dataset.kat; renderGalerie();
+    $("gal-filter").querySelector('[data-kat="' + kat + '"]').focus();   // Fokus nicht verlieren (Tastatur)
+  });
   $("gal-grid").addEventListener("click", e => { const b = e.target.closest("[data-id]"); if (b) lbOeffnen(b.dataset.id); });
 
   /* ---------- Großansicht ---------- */
@@ -505,7 +511,7 @@
     if (f.credit) {   // Namensnennung mit Links zu Quelle und Lizenz
       const c = document.createElement("small");
       c.className = "lb-credit";
-      const quelle = document.createElement("a"); quelle.href = f.credit.quelle; quelle.target = "_blank"; quelle.rel = "noopener"; quelle.textContent = "Foto: " + f.credit.autor;
+      const quelle = document.createElement("a"); quelle.href = f.credit.quelle; quelle.target = "_blank"; quelle.rel = "noopener"; quelle.textContent = t("gal.photoBy") + ": " + f.credit.autor;
       const lizenz = document.createElement("a"); lizenz.href = f.credit.lizenzUrl; lizenz.target = "_blank"; lizenz.rel = "noopener"; lizenz.textContent = f.credit.lizenz;
       c.append(quelle, " · ", lizenz, " · Wikimedia Commons");
       cap.append(c);
@@ -551,12 +557,12 @@
     bauePersonen(P ? P.maxPersonen : 5);
     // Preise erscheinen nur in der Zusammenfassung, sobald ein Zeitraum gewählt ist
     set("sum-price-hint", t(P ? "sum.pickHint" : "sum.onRequest"));
-    if (!P) { set("know-min", ""); set("know-clean", ""); return; }
+    if (!P) { set("know-min", t("info.onRequest")); set("know-clean", t("info.onRequest")); return; }
     const kuenftig = saisons.filter(s => s.jaehrlich || s.bis >= key(heute));
     const mehr = {};
     kuenftig.forEach(s => { if (s.minNaechte > P.minNaechte) mehr[I18N.saison(s.name)] = s.minNaechte; });
     const zusatz = Object.entries(mehr).map(([n, m]) => n + ": " + m).join(", ");
-    set("know-min", t("info.min", { n: P.minNaechte, extra: zusatz ? " (" + zusatz + ")" : "" }));
+    set("know-min", t("info.min", { n: P.minNaechte, nights: t("nights", { n: P.minNaechte }), extra: zusatz ? " (" + zusatz + ")" : "" }));
     set("know-clean", t("info.clean", { p: euro(P.endreinigung) }));
   }
 
@@ -564,7 +570,9 @@
   const calCard = $("cal-card"), monthsEl = $("cal-months"), statusEl = $("cal-status");
   const prevBtn = $("cal-prev"), nextBtn = $("cal-next"), noteEl = $("cal-note");
   const ersterMonat = new Date(heute.getFullYear(), heute.getMonth(), 1);
-  const letzterMonat = () => new Date(horizont.getFullYear(), horizont.getMonth() - 2, 1);   // 2 Monate sichtbar
+  const einMonat = matchMedia("(max-width:680px)");                                      // Handy: nur 1 Monat sichtbar
+  const letzterMonat = () => new Date(horizont.getFullYear(), horizont.getMonth() - (einMonat.matches ? 1 : 2), 1);
+  einMonat.addEventListener?.("change", () => { if (view > letzterMonat()) view = letzterMonat(); render(); });
 
   // Erster Monat mit buchbaren Nächten (z. B. im Winter direkt die neue Saison zeigen)
   function ersterBuchbarerMonat(){
@@ -609,6 +617,7 @@
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "cal-day";
+      btn.dataset.date = key(d);
       const zahl = document.createElement("span");
       zahl.className = "d"; zahl.textContent = day;
       btn.appendChild(zahl);
@@ -641,8 +650,13 @@
       if (selStart && selEnd && d > selStart && d < selEnd) btn.classList.add("in-range");
 
       let label = fmt(d);
-      if (blocked) label += ", " + t("cal.dayBooked"); else if (closed && !past) label += ", " + t("cal.dayClosed");
+      const nurAbreise = waehltAbreise && same(d, limit) && (blocked || closed);
+      if (nurAbreise) label += ", " + t("cal.departOnly");
+      else if (blocked) label += ", " + t("cal.dayBooked"); else if (closed && !past) label += ", " + t("cal.dayClosed");
       else if (nachtPreis != null) label += ", " + euro(nachtPreis) + " (" + t("cal.priceNote") + ")";
+      if (same(d, selStart)) label += " – " + t("sum.arrival");
+      if (same(d, selEnd)) label += " – " + t("sum.departure");
+      btn.setAttribute("aria-pressed", same(d, selStart) || same(d, selEnd) ? "true" : "false");
       btn.setAttribute("aria-label", label);
 
       btn.addEventListener("click", () => onDayClick(d));
@@ -653,6 +667,8 @@
   }
 
   function render(){
+    // Tastaturfokus auf demselben Tag halten, obwohl der Kalender neu aufgebaut wird
+    const fokusTag = monthsEl.contains(document.activeElement) ? document.activeElement.dataset.date : null;
     monthsEl.innerHTML = "";
     monthsEl.appendChild(renderMonth(view));
     monthsEl.appendChild(renderMonth(new Date(view.getFullYear(), view.getMonth() + 1, 1)));
@@ -661,6 +677,7 @@
     calCard.classList.toggle("cal-loading", laedt);
     statusEl.textContent = t(laedt ? "cal.loading" : !selStart ? "cal.select" : (!selEnd ? "cal.selectEnd" : "cal.done"));
     noteEl.textContent = hinweis ? t(hinweis) : ""; noteEl.hidden = !hinweis;
+    if (fokusTag) { const b = monthsEl.querySelector('[data-date="' + fokusTag + '"]'); if (b && !b.disabled) b.focus(); }
     updateSummary();
   }
 
@@ -686,6 +703,7 @@
       const data = await r.json();
       setzeBelegung(data.belegt || []);
       setzePreise(data.preise);
+      if (data.maxNaechte) maxNaechte = data.maxNaechte;
       hinweis = "";
     } catch (e) {
       hinweis = "cal.loadError";
@@ -730,6 +748,7 @@
       warn(s && s.minNaechte ? { key: "sum.minStaySeason", vars: { n: min, season: I18N.saison(s.name) } } : { key: "sum.minStay", vars: { n: min } });
       return;
     }
+    if (nights > maxNaechte){ warn({ key: "sum.maxStay", vars: { n: maxNaechte } }); return; }
     bereit = true;
     btnReq.disabled = false;
     if (!P) return;                       // ohne Preisdaten: anfragen ja, Preis nennen wir per Mail
@@ -819,8 +838,16 @@
         warn({ key: "err.conflict", bleibt: true });
       } else if (r.status === 429) {
         warn({ key: "err.rate", mail: true, bleibt: true });
+      } else if (data.code === "min_naechte") {
+        await ladeBelegung(true);
+        warn({ key: "sum.minStay", vars: { n: data.min }, bleibt: true });
+      } else if (data.code === "max_naechte") {
+        warn({ key: "sum.maxStay", vars: { n: data.max }, bleibt: true });
+      } else if (data.code === "vergangenheit" || data.code === "horizont") {
+        await ladeBelegung(true);
+        warn({ key: data.code === "horizont" ? "err.horizon" : "err.past", bleibt: true });
       } else {
-        // Meldungen der API sind deutsch – in anderen Sprachen eine allgemeine Meldung zeigen
+        // Übrige Meldungen der API sind deutsch – in anderen Sprachen eine allgemeine Meldung zeigen
         warn(I18N.lang === "de" && data.fehler ? { text: data.fehler, mail: r.status >= 500, bleibt: true } : { key: "err.generic", mail: true, bleibt: true });
       }
     } catch (err) {

@@ -4,7 +4,8 @@
 
    Aufruf:  npm run benutzer:local  -- <name>     (lokale Test-Datenbank)
             npm run benutzer:remote -- <name>     (echte Datenbank bei Cloudflare)
-   Das Passwort wird danach abgefragt (oder per stdin übergeben).
+   Das Passwort wird danach verdeckt abgefragt – direkt aus Keeper einfügen.
+   (Übergabe per stdin nur für automatische Tests; Passwörter nie mit echo, in Skripten oder Dateien ablegen.)
    Passwort bitte im Passwortmanager (Keeper) erzeugen und dort ablegen. */
 
 import { pbkdf2Sync, randomBytes } from "node:crypto";

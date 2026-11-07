@@ -23,6 +23,13 @@ const SQL_BLOCKIEREND = "('bestaetigt','blockiert')";
 const PBKDF2_ITER = 100000;          // Obergrenze der Workers-Laufzeit
 const TOKEN_STUNDEN = 12;
 const enc = new TextEncoder();
+// Titel/Beschreibung der Startseite je Sprache (gleich wie meta.title/meta.desc in site/assets/i18n.js)
+const META = {
+  de: { locale: "de_DE", titel: "Mobile Home Adria · Privlaka bei Zadar", text: "Modernes Mobile Home im Dalmacija Camp in Privlaka bei Zadar, Kroatien. Verfügbarkeit prüfen und direkt anfragen – klimatisiert, überdachte Terrasse, Campingplatz direkt am Meer." },
+  en: { locale: "en_GB", titel: "Mobile Home Adria · Privlaka near Zadar", text: "Modern mobile home at Dalmacija Camp in Privlaka near Zadar, Croatia. Check availability and enquire directly – air-conditioned, covered terrace, campsite right by the sea." },
+  hr: { locale: "hr_HR", titel: "Mobile Home Adria · Privlaka kod Zadra", text: "Moderna mobilna kućica u kampu Dalmacija u Privlaci kod Zadra. Provjeri dostupnost i pošalji upit izravno – klima, natkrivena terasa, kamp uz samo more." },
+  sl: { locale: "sl_SI", titel: "Mobile Home Adria · Privlaka pri Zadru", text: "Sodobna mobilna hišica v kampu Dalmacija v Privlaki pri Zadru na Hrvaškem. Preveri razpoložljivost in pošlji povpraševanje – klima, pokrita terasa, kamp tik ob morju." },
+};
 
 export default {
   async fetch(request, env, ctx) {
@@ -46,7 +53,7 @@ export default {
     return apiAntwort(request, env, ctx, url);
   },
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(Promise.allSettled([aufraeumen(env), mailPruefen(env)]));
+    ctx.waitUntil(cronLauf(env));
   },
   // Eingehende Mails an noreply@… (Cloudflare Email Routing → Worker): automatische Hinweis-Antwort
   async email(message, env, ctx) {
@@ -107,7 +114,7 @@ async function websiteAntwort(request, env, url) {
   if (html) {
     h.set("Cache-Control", "no-cache");
     h.delete("ETag"); h.delete("Last-Modified");
-  } else if (url.searchParams.has("v")) {
+  } else if (url.searchParams.has("v") && env.VERSION && env.VERSION !== "dev") {
     h.set("Cache-Control", "public, max-age=31536000, immutable");   // CSS/JS mit Versionskennung
   } else if (/^\/(images|assets)\//.test(url.pathname)) {
     h.set("Cache-Control", "public, max-age=604800");                // Bilder, Schriften, Leaflet: 7 Tage
@@ -121,7 +128,23 @@ async function websiteAntwort(request, env, url) {
 
   // Nonce an alle <script> hängen, Versionskennung (__VERSION__) für CSS/JS einsetzen
   const version = env.VERSION || "dev";
-  return new HTMLRewriter()
+  const rw = new HTMLRewriter();
+  // Startseite mit ?lang=xx: Titel, Beschreibung, Sprache und Vorschau schon im HTML passend setzen
+  // (Suchmaschinen und Link-Vorschauen in WhatsApp/Facebook führen kein JavaScript aus)
+  const m = (url.pathname === "/" || url.pathname === "/index.html") && META[url.searchParams.get("lang")];
+  if (m) {
+    const l = url.searchParams.get("lang");
+    const adresse = (env.WEBSITE_URL || url.origin).replace(/\/+$/, "") + "/?lang=" + l;
+    rw.on("html", { element(e) { e.setAttribute("lang", l); } })
+      .on("title", { element(e) { e.setInnerContent(m.titel); } })
+      .on('meta[name="description"]', { element(e) { e.setAttribute("content", m.text); } })
+      .on('meta[property="og:title"]', { element(e) { e.setAttribute("content", m.titel); } })
+      .on('meta[property="og:description"]', { element(e) { e.setAttribute("content", m.text); } })
+      .on('meta[property="og:locale"]', { element(e) { e.setAttribute("content", m.locale); } })
+      .on('meta[property="og:url"]', { element(e) { e.setAttribute("content", adresse); } })
+      .on('link[rel="canonical"]', { element(e) { e.setAttribute("href", adresse); } });
+  }
+  return rw
     .on("script", { element(e) {
       e.setAttribute("nonce", nonce);
       const src = e.getAttribute("src");
@@ -191,15 +214,19 @@ async function belegung(env) {
     ladePreise(env),
   ]);
   const { geaendert_am, geaendert_von, ...preise } = p;   // interne Felder nicht veröffentlichen
-  return json({ belegt: results, preise, stand: new Date().toISOString() }, 200, { "Cache-Control": "public, max-age=60" });
+  return json({ belegt: results, preise, maxNaechte: Number(env.MAX_NAECHTE || 60), stand: new Date().toISOString() }, 200, { "Cache-Control": "public, max-age=60" });
 }
 
 async function neueAnfrage(req, env, ctx) {
   const d = await leseJson(req);
   if (d.website) return json({ ok: true }, 201);            // Honeypot: Bots füllen das versteckte Feld aus
 
+  // Erst zählen, dann prüfen – so können auch gleichzeitig gesendete Anfragen das Limit nicht umgehen
   const schluessel = await ipSchluessel(req, env, "anfrage");
-  await limitPruefen(env, schluessel, 5, 3600, "Zu viele Anfragen von diesem Anschluss – bitte später erneut versuchen oder per E-Mail melden.");
+  await limitZaehlen(env, schluessel);
+  await limitPruefen(env, schluessel, 12, 3600, "Zu viele Anfragen von diesem Anschluss – bitte später erneut versuchen oder per E-Mail melden.", 1);
+  // Schutz vor Spam-Wellen mit wechselnden Adressen: höchstens 50 neue Anfragen pro Tag insgesamt
+  await limitPruefen(env, "anfrage:gesamt", 50, 86400, "Zurzeit gehen ungewöhnlich viele Anfragen ein – bitte später erneut versuchen oder per E-Mail melden.");
 
   const von = V.datum(d.von, "Anreise");
   const bis = V.datum(d.bis, "Abreise");
@@ -207,13 +234,13 @@ async function neueAnfrage(req, env, ctx) {
   const n = naechte(von, bis);
   const p = await ladePreise(env);
   const max = Number(env.MAX_NAECHTE || 60);
-  if (von < h) throw new HttpError(400, "Die Anreise liegt in der Vergangenheit.");
-  if (bis > horizontVon(h, p.buchbarMonateVoraus)) throw new HttpError(400, `Anfragen sind höchstens ${p.buchbarMonateVoraus} Monate im Voraus möglich.`);
+  if (von < h) throw new HttpError(400, "Die Anreise liegt in der Vergangenheit.", { code: "vergangenheit" });
+  if (bis > horizontVon(h, p.buchbarMonateVoraus)) throw new HttpError(400, `Anfragen sind höchstens ${p.buchbarMonateVoraus} Monate im Voraus möglich.`, { code: "horizont" });
   if (n < 1) throw new HttpError(400, "Die Abreise muss nach der Anreise liegen.");
   const s0 = saisonFuer(p, von);
   const min = (s0 && s0.minNaechte) || p.minNaechte;
-  if (n < min) throw new HttpError(400, `Mindestaufenthalt${s0 && s0.minNaechte ? " in der " + s0.name : ""}: ${min} Nächte.`);
-  if (n > max) throw new HttpError(400, `Höchstens ${max} Nächte pro Anfrage.`);
+  if (n < min) throw new HttpError(400, `Mindestaufenthalt${s0 && s0.minNaechte ? " in der " + s0.name : ""}: ${min} Nächte.`, { code: "min_naechte", min });
+  if (n > max) throw new HttpError(400, `Höchstens ${max} Nächte pro Anfrage.`, { code: "max_naechte", max });
   const preis = preisBerechnen(p, von, bis);   // wirft, wenn Nächte außerhalb der Saison liegen
   if (d.datenschutz !== true) throw new HttpError(400, "Bitte bestätige die Datenschutzhinweise.");
 
@@ -228,9 +255,9 @@ async function neueAnfrage(req, env, ctx) {
   };
 
   if ((await konflikte(env, von, bis)).length)
-    throw new HttpError(409, "Der Zeitraum ist leider nicht mehr frei. Bitte wähle andere Daten.");
+    throw new HttpError(409, "Der Zeitraum ist leider nicht mehr frei. Bitte wähle andere Daten.", { code: "belegt" });
 
-  await limitZaehlen(env, schluessel);
+  await limitZaehlen(env, "anfrage:gesamt");
   const jetzt = new Date().toISOString();
   const id = crypto.randomUUID();
   await env.DB.prepare(
@@ -273,19 +300,24 @@ async function icsExport(env, url) {
 /* ---------------- Anmeldung ---------------- */
 async function login(req, env) {
   const d = await leseJson(req);
-  const schluessel = await ipSchluessel(req, env, "login");
-  await limitPruefen(env, schluessel, 10, 900, "Zu viele Fehlversuche – bitte 15 Minuten warten.");
-
   const name = typeof d.name === "string" ? d.name.trim() : "";
   const passwort = typeof d.passwort === "string" ? d.passwort : "";
+  // Jeder Versuch wird VOR der Prüfung gezählt (keine Umgehung durch parallele Anfragen),
+  // je Anschluss und je Benutzername (schützt auch bei wechselnden IP-Adressen)
+  const ipSchl = await ipSchluessel(req, env, "login");
+  const nameSchl = "login-name:" + b64url(await crypto.subtle.digest("SHA-256", enc.encode(name.toLowerCase() + "|" + (env.SESSION_SECRET || "")))).slice(0, 22);
+  await limitZaehlen(env, ipSchl);
+  await limitZaehlen(env, nameSchl);
+  await limitPruefen(env, ipSchl, 10, 900, "Zu viele Anmeldeversuche – bitte 15 Minuten warten.", 1);
+  await limitPruefen(env, nameSchl, 10, 900, "Zu viele Anmeldeversuche für diesen Zugang – bitte 15 Minuten warten.", 1);
+
   const u = name ? await env.DB.prepare("SELECT name, pw_hash FROM benutzer WHERE name = ? COLLATE NOCASE").bind(name).first() : null;
   // Auch bei unbekanntem Namen rechnen, damit die Antwortzeit nichts verrät
   const ok = await passwortPruefen(passwort, u ? u.pw_hash : "pbkdf2$" + PBKDF2_ITER + "$AAAAAAAAAAAAAAAAAAAAAA==$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=");
-  if (!u || !ok) {
-    await limitZaehlen(env, schluessel);
-    throw new HttpError(401, "Name oder Passwort falsch.");
-  }
-  return json({ token: await tokenErstellen(env, u.name), name: u.name, gueltigStunden: TOKEN_STUNDEN });
+  if (!u || !ok) throw new HttpError(401, "Name oder Passwort falsch.");
+  // erfolgreiche Anmeldung: Zähler für diesen Zugang zurücksetzen
+  await env.DB.prepare("DELETE FROM rate_limit WHERE schluessel IN (?, ?)").bind(ipSchl, nameSchl).run();
+  return json({ token: await tokenErstellen(env, u.name, u.pw_hash), name: u.name, gueltigStunden: TOKEN_STUNDEN });
 }
 
 async function auth(req, env) {
@@ -298,8 +330,10 @@ async function auth(req, env) {
     p = JSON.parse(new TextDecoder().decode(unb64url(m[1])));
   } catch { throw new HttpError(401, "Bitte erneut anmelden."); }
   if (!p.exp || p.exp < Date.now()) throw new HttpError(401, "Sitzung abgelaufen – bitte erneut anmelden.");
-  const u = await env.DB.prepare("SELECT name FROM benutzer WHERE name = ?").bind(p.u).first();
+  const u = await env.DB.prepare("SELECT name, pw_hash FROM benutzer WHERE name = ?").bind(p.u).first();
   if (!u) throw new HttpError(401, "Zugang existiert nicht mehr.");
+  // Nach einer Passwortänderung sind alle älteren Anmeldungen ungültig
+  if (p.k !== await passwortKennung(u.pw_hash)) throw new HttpError(401, "Passwort wurde geändert – bitte erneut anmelden.");
   return u.name;
 }
 
@@ -309,8 +343,10 @@ async function passwortAendern(req, env, user) {
   if (!(await passwortPruefen(String(d.alt || ""), u.pw_hash))) throw new HttpError(400, "Das bisherige Passwort stimmt nicht.");
   const neu = String(d.neu || "");
   if (neu.length < 12) throw new HttpError(400, "Das neue Passwort muss mindestens 12 Zeichen haben.");
-  await env.DB.prepare("UPDATE benutzer SET pw_hash = ? WHERE name = ?").bind(await passwortHash(neu), user).run();
-  return json({ ok: true });
+  const neuHash = await passwortHash(neu);
+  await env.DB.prepare("UPDATE benutzer SET pw_hash = ? WHERE name = ?").bind(neuHash, user).run();
+  // neue Anmeldung zurückgeben – alle anderen (älteren) Sitzungen sind damit abgemeldet
+  return json({ ok: true, token: await tokenErstellen(env, user, neuHash) });
 }
 
 /* ---------------- Verwaltung ---------------- */
@@ -321,9 +357,9 @@ async function liste(env, url) {
   const ab = url.searchParams.get("ab");
   if (status) { sql += " AND status = ?"; args.push(V.status(status)); }
   if (ab) { sql += " AND bis >= ?"; args.push(V.datum(ab, "ab")); }
-  sql += " ORDER BY von LIMIT 2000";
+  sql += " ORDER BY von DESC LIMIT 2000";   // neueste zuerst, falls die Grenze je erreicht wird (Admin sortiert selbst)
   const { results } = await env.DB.prepare(sql).bind(...args).all();
-  return json({ buchungen: results, heute: heute(env), mail: await mailStatus(env) });
+  return json({ buchungen: results, heute: heute(env), mail: await mailStatus(env), cron: await cronStatus(env) });
 }
 
 async function anlegen(req, env, user) {
@@ -351,16 +387,24 @@ async function aendern(req, env, user, id) {
 
   const f = adminFelder(d, alt);
   const jetzt = new Date().toISOString();
-  // Merker „Bestätigungs-Mail gesendet“: true → Zeitpunkt setzen (vorhandenen behalten), false → zurücksetzen
-  const mailAm = "bestaetigung_gesendet" in d
+  const datumGeaendert = f.von !== alt.von || f.bis !== alt.bis;
+  // Merker „Bestätigungs-Mail gesendet“: true → Zeitpunkt setzen (vorhandenen behalten), false → zurücksetzen.
+  // Ändern sich die Daten, muss der Gast eine neue Bestätigung bekommen → Merker zurücksetzen.
+  let mailAm = "bestaetigung_gesendet" in d
     ? (d.bestaetigung_gesendet === true ? (alt.bestaetigung_gesendet_am || jetzt) : null)
     : alt.bestaetigung_gesendet_am;
+  if (datumGeaendert) mailAm = null;
+  // Preis bei geändertem Zeitraum neu berechnen (sonst stünde der alte Preis in der Bestätigungs-Mail)
+  let preis = alt.preis_web;
+  if (datumGeaendert && alt.preis_web != null) {
+    try { preis = preisBerechnen(await ladePreise(env), f.von, f.bis); } catch { preis = null; }
+  }
   const r = await env.DB.prepare(
     `UPDATE buchungen SET status=?2, von=?3, bis=?4, name=?5, email=?6, telefon=?7, personen=?8,
-       nachricht=?9, notiz=?10, geaendert_am=?11, geaendert_von=?12, bestaetigung_gesendet_am=?14
+       nachricht=?9, notiz=?10, geaendert_am=?11, geaendert_von=?12, bestaetigung_gesendet_am=?14, preis_web=?15
      WHERE id=?1 AND geaendert_am=?13 AND (?2 NOT IN ${SQL_BLOCKIEREND} OR NOT EXISTS (
        SELECT 1 FROM buchungen b WHERE b.id != ?1 AND b.status IN ${SQL_BLOCKIEREND} AND b.von < ?4 AND b.bis > ?3))`
-  ).bind(id, f.status, f.von, f.bis, f.name, f.email, f.telefon, f.personen, f.nachricht, f.notiz, jetzt, user, alt.geaendert_am, mailAm).run();
+  ).bind(id, f.status, f.von, f.bis, f.name, f.email, f.telefon, f.personen, f.nachricht, f.notiz, jetzt, user, alt.geaendert_am, mailAm, preis).run();
 
   if (!r.meta.changes) {
     const jetzt2 = await eintrag(env, id);
@@ -369,9 +413,10 @@ async function aendern(req, env, user, id) {
       throw new HttpError(409, "Der Eintrag wurde gerade von jemand anderem geändert. Bitte neu laden.", { veraltet: true });
     await konfliktFehler(env, f.von, f.bis, id);
   }
-  // Abgelehnt → Gast bekommt automatisch eine Absage (abschaltbar mit absage_mail: false)
+  // Offene Anfrage abgelehnt → Gast bekommt automatisch eine Absage (abschaltbar mit absage_mail: false).
+  // Nicht bei bereits bestätigten/gesperrten Einträgen (dafür „Storniert“) und nie zweimal.
   let absage = null;
-  if (f.status === "abgelehnt" && alt.status !== "abgelehnt" && d.absage_mail !== false) {
+  if (f.status === "abgelehnt" && alt.status === "anfrage" && !alt.absage_gesendet_am && d.absage_mail !== false) {
     try { absage = await absageSenden(env, { id, von: f.von, bis: f.bis, name: f.name, email: f.email, sprache: alt.sprache }); }
     catch (e) { console.error("Absage:", e); absage = "fehler"; }
   }
@@ -699,10 +744,11 @@ function gastWerte(env, a) {
   };
 }
 
-// Schutz gegen Missbrauch: höchstens 40 automatische Gäste-Mails pro Tag
-async function gastLimitOk(env) {
-  const n = await env.DB.prepare("SELECT COUNT(*) AS n FROM rate_limit WHERE schluessel = 'mail:gast' AND zeit > ?").bind(Date.now() - 86400000).first();
-  if (n.n >= 40) { console.error("Tageslimit Gäste-Mails erreicht"); return false; }
+// Schutz gegen Missbrauch: Tageskontingente je Mail-Art (Eingangsbestätigungen, Absagen, Benachrichtigungen getrennt,
+// damit z. B. eine Spam-Welle nicht die Absagen aus der Verwaltung blockiert)
+async function gastLimitOk(env, schluessel = "mail:gast", max = 40) {
+  const n = await env.DB.prepare("SELECT COUNT(*) AS n FROM rate_limit WHERE schluessel = ? AND zeit > ?").bind(schluessel, Date.now() - 86400000).first();
+  if (n.n >= max) { console.error("Tageslimit erreicht:", schluessel); return false; }
   return true;
 }
 
@@ -729,7 +775,7 @@ async function eingangBestaetigen(env, a) {
 async function absageSenden(env, a) {
   if (!a.email) return "keine_adresse";
   if (!mailAktiv(env)) return "nicht_eingerichtet";
-  if (!(await gastLimitOk(env))) return "limit";
+  if (!(await gastLimitOk(env, "mail:absage", 40))) return "limit";
   const w = gastWerte(env, a), T = w.T;
   const { text, html } = mailBauen({
     lang: w.l, haus: w.haus, hallo: T.hallo(w.vorname), absaetze: [T.absage.intro(w.zeitraum), T.absage.weiter],
@@ -738,15 +784,18 @@ async function absageSenden(env, a) {
   });
   const ok = await mailSenden(env, { an: a.email, betreff: T.absage.betreff(w.haus, w.zeitraum), text, html, antwortAn: env.MAIL_ANTWORT_AN });
   if (!ok) return "fehler";
-  await limitZaehlen(env, "mail:gast");
-  await env.DB.prepare("UPDATE buchungen SET absage_gesendet_am = ? WHERE id = ?").bind(new Date().toISOString(), a.id).run();
+  // Mail ist raus – Fehler beim Vermerken dürfen das Ergebnis nicht verfälschen
+  try {
+    await limitZaehlen(env, "mail:absage");
+    await env.DB.prepare("UPDATE buchungen SET absage_gesendet_am = ? WHERE id = ?").bind(new Date().toISOString(), a.id).run();
+  } catch (e) { console.error("Absage vermerken:", e); }
   return "gesendet";
 }
 
 // Benachrichtigung an die Verwaltung (NOTIFY_TO) – bewusst ohne Name/Kontaktdaten des Gastes
 async function benachrichtigen(env, a) {
   const an = (env.NOTIFY_TO || "").split(",").map(s => s.trim()).filter(Boolean);
-  if (!mailAktiv(env) || !an.length) return;
+  if (!mailAktiv(env) || !an.length || !(await gastLimitOk(env, "mail:verwaltung", 50))) return;
   const zeitraum = `${deDatum(a.von)} – ${deDatum(a.bis)}`;
   const n = naechte(a.von, a.bis);
   const sprachen = { de: "Deutsch", en: "Englisch", hr: "Kroatisch", sl: "Slowenisch" };
@@ -760,7 +809,8 @@ async function benachrichtigen(env, a) {
     hinweis: "Automatisch versendet – bitte nicht antworten, Antworten werden nicht gelesen.",
     fuss: "Name und Kontaktdaten des Gastes stehen aus Datenschutzgründen nur in der Verwaltung.",
   });
-  await mailSenden(env, { an, betreff: `Neue Anfrage: ${zeitraum} (${n} Nächte, ${a.personen} Pers.)`, text, html, antwortAn: env.MAIL_ANTWORT_AN });
+  if (await mailSenden(env, { an, betreff: `Neue Anfrage: ${zeitraum} (${n} Nächte, ${a.personen} Pers.)`, text, html, antwortAn: env.MAIL_ANTWORT_AN }))
+    await limitZaehlen(env, "mail:verwaltung");
 }
 
 /* ---------------- E-Mail-Empfang: noreply@… beantwortet automatisch ---------------- */
@@ -831,20 +881,37 @@ async function noreplyEmpfang(message, env) {
 }
 
 /* ---------------- Tägliche Bereinigung (Datenschutz) ---------------- */
+// Ergebnis wird in einstellungen 'cronstatus' vermerkt und in der Verwaltung angezeigt
+async function cronLauf(env) {
+  const [a, m] = await Promise.allSettled([aufraeumen(env), mailPruefen(env)]);
+  for (const r of [a, m]) if (r.status === "rejected") console.error("Cron:", r.reason);
+  try {
+    await env.DB.prepare(
+      `INSERT INTO einstellungen (schluessel, wert, geaendert_am, geaendert_von) VALUES ('cronstatus', ?1, ?2, 'System')
+       ON CONFLICT(schluessel) DO UPDATE SET wert = excluded.wert, geaendert_am = excluded.geaendert_am`
+    ).bind(JSON.stringify({ ok: a.status === "fulfilled", fehler: a.status === "rejected" ? String(a.reason).slice(0, 200) : null }), new Date().toISOString()).run();
+  } catch (e) { console.error("Cronstatus:", e); }
+}
+async function cronStatus(env) {
+  const r = await env.DB.prepare("SELECT wert, geaendert_am FROM einstellungen WHERE schluessel = 'cronstatus'").first();
+  return r ? { ...JSON.parse(r.wert), stand: r.geaendert_am } : null;
+}
 async function aufraeumen(env) {
   const h = heute(env);
   const loeschenTage = Number(env.LOESCHEN_NACH_TAGEN || 180);
   const anonTage = Number(env.ANONYMISIEREN_NACH_TAGEN || 365);
   await env.DB.batch([
     env.DB.prepare("DELETE FROM rate_limit WHERE zeit < ?").bind(Date.now() - 86400000),
-    env.DB.prepare("DELETE FROM buchungen WHERE status IN ('abgelehnt','storniert') AND geaendert_am < ?")
-      .bind(new Date(Date.now() - loeschenTage * 86400000).toISOString()),
+    // abgelehnt/storniert: erst löschen, wenn der Zeitraum vorbei ist UND die letzte Änderung X Tage zurückliegt
+    env.DB.prepare("DELETE FROM buchungen WHERE status IN ('abgelehnt','storniert') AND bis < ? AND geaendert_am < ?")
+      .bind(h, new Date(Date.now() - loeschenTage * 86400000).toISOString()),
     env.DB.prepare("DELETE FROM buchungen WHERE status = 'anfrage' AND bis < ?").bind(plusTage(h, -30)),
     env.DB.prepare(
       `UPDATE buchungen SET name = NULL, email = NULL, telefon = NULL, nachricht = NULL,
          notiz = CASE WHEN notiz IS NULL THEN NULL ELSE '[anonymisiert]' END
-       WHERE status = 'bestaetigt' AND bis < ?
-         AND (name IS NOT NULL OR email IS NOT NULL OR telefon IS NOT NULL OR nachricht IS NOT NULL)`
+       WHERE status IN ('bestaetigt','blockiert') AND bis < ?
+         AND (name IS NOT NULL OR email IS NOT NULL OR telefon IS NOT NULL OR nachricht IS NOT NULL
+              OR (notiz IS NOT NULL AND notiz != '[anonymisiert]'))`
     ).bind(plusTage(h, -anonTage)),
   ]);
 }
@@ -895,10 +962,11 @@ async function ipSchluessel(req, env, zweck) {
   const h = await crypto.subtle.digest("SHA-256", enc.encode(`${zweck}|${ip}|${env.SESSION_SECRET || ""}`));
   return `${zweck}:${b64url(h).slice(0, 22)}`;
 }
-async function limitPruefen(env, schluessel, max, fensterSek, meldung) {
+// schonGezaehlt = 1, wenn der aktuelle Versuch vorher schon eingetragen wurde (Zählen vor Prüfen)
+async function limitPruefen(env, schluessel, max, fensterSek, meldung, schonGezaehlt = 0) {
   const r = await env.DB.prepare("SELECT COUNT(*) AS n FROM rate_limit WHERE schluessel = ? AND zeit > ?")
     .bind(schluessel, Date.now() - fensterSek * 1000).first();
-  if (r.n >= max) throw new HttpError(429, meldung);
+  if (r.n - schonGezaehlt >= max) throw new HttpError(429, meldung, { code: "limit" });
 }
 const limitZaehlen = (env, schluessel) =>
   env.DB.prepare("INSERT INTO rate_limit (schluessel, zeit) VALUES (?, ?)").bind(schluessel, Date.now()).run();
@@ -908,8 +976,10 @@ async function hmacKey(env) {
   if (!env.SESSION_SECRET || env.SESSION_SECRET.length < 32) throw new HttpError(500, "Server nicht eingerichtet (SESSION_SECRET fehlt).");
   return crypto.subtle.importKey("raw", enc.encode(env.SESSION_SECRET), { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]);
 }
-async function tokenErstellen(env, name) {
-  const payload = b64url(enc.encode(JSON.stringify({ u: name, exp: Date.now() + TOKEN_STUNDEN * 3600000 })));
+// Kennung des aktuellen Passworts im Token: ändert sich das Passwort, werden alte Anmeldungen ungültig
+const passwortKennung = async pwHash => b64url(await crypto.subtle.digest("SHA-256", enc.encode(String(pwHash)))).slice(0, 16);
+async function tokenErstellen(env, name, pwHash) {
+  const payload = b64url(enc.encode(JSON.stringify({ u: name, k: await passwortKennung(pwHash), exp: Date.now() + TOKEN_STUNDEN * 3600000 })));
   const sig = await crypto.subtle.sign("HMAC", await hmacKey(env), enc.encode(payload));
   return `${payload}.${b64url(sig)}`;
 }

@@ -12,8 +12,6 @@ const KONFIG = {
 
   /* ---------- Stammdaten ---------- */
   name: "Mobile Home Adria",
-  untertitel: "Dein Zuhause an der dalmatinischen Küste",
-  ort: "Dalmacija Camp, Privlaka · Kroatien",
 
   // Kontakt (Footer und Notfall-Weg per E-Mail, falls die API nicht erreichbar ist)
   kontaktEmail: "jadraleno@web.de",

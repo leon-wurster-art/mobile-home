@@ -16,6 +16,7 @@ routes = [
 directory = "../site"
 binding = "ASSETS"
 run_worker_first = true
+not_found_handling = "404-page"   # unbekannte Adressen → site/404.html (Status 404)
 
 [[d1_databases]]
 binding = "DB"
@@ -30,7 +31,7 @@ crons = ["0 3 * * *"]
 
 [vars]
 # Von welchen Seiten darf die API aufgerufen werden? (kommagetrennt, ohne Pfad)
-ALLOWED_ORIGINS = "https://mobile-home-privlaka.com,https://www.mobile-home-privlaka.com,http://localhost:8787,http://localhost:8080"
+ALLOWED_ORIGINS = "https://mobile-home-privlaka.com,https://www.mobile-home-privlaka.com"   # lokal zusätzlich in .dev.vars
 VERSION = "dev"   # wird beim Ausspielen durch die Commit-Kennung ersetzt
 HTTPS_UMLEITUNG = "1"   # http → https (lokal in .dev.vars auf 0)
 # Link zur Verwaltungsseite (für Benachrichtigungs-Mails)

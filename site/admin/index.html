@@ -178,8 +178,8 @@ dialog::backdrop{background:rgba(12,26,32,.45)}
       <h1>Anmelden</h1>
       <p class="sub">Zugang für die Betreuung der Buchungen. Passwort bitte aus dem Passwortmanager (Keeper) verwenden und nicht im Browser speichern.</p>
       <div class="alert alert-err" id="login-err" hidden></div>
-      <div class="field"><label for="l-name">Name</label><input id="l-name" autocomplete="username" required></div>
-      <div class="field"><label for="l-pw">Passwort</label><input id="l-pw" type="password" autocomplete="current-password" required></div>
+      <div class="field"><label for="l-name">Name</label><input id="l-name" autocomplete="off" required></div>
+      <div class="field"><label for="l-pw">Passwort</label><input id="l-pw" type="password" autocomplete="off" required></div>
       <button class="btn btn-primary" type="submit" id="login-btn">Anmelden</button>
     </form>
   </section>
@@ -350,9 +350,9 @@ dialog::backdrop{background:rgba(12,26,32,.45)}
       <h3 id="pw-title">Passwort ändern</h3>
       <p class="dlg-info">Neues Passwort im Passwortmanager (Keeper) erzeugen und dort speichern. Mindestens 12 Zeichen.</p>
       <div class="alert alert-err" id="pw-err" hidden></div>
-      <div class="field"><label for="pw-alt">Bisheriges Passwort</label><input id="pw-alt" type="password" autocomplete="current-password" required></div>
-      <div class="field"><label for="pw-neu">Neues Passwort</label><input id="pw-neu" type="password" autocomplete="new-password" minlength="12" required></div>
-      <div class="field"><label for="pw-neu2">Neues Passwort wiederholen</label><input id="pw-neu2" type="password" autocomplete="new-password" minlength="12" required></div>
+      <div class="field"><label for="pw-alt">Bisheriges Passwort</label><input id="pw-alt" type="password" autocomplete="off" required></div>
+      <div class="field"><label for="pw-neu">Neues Passwort</label><input id="pw-neu" type="password" autocomplete="off" minlength="12" required></div>
+      <div class="field"><label for="pw-neu2">Neues Passwort wiederholen</label><input id="pw-neu2" type="password" autocomplete="off" minlength="12" required></div>
     </div>
     <div class="dlg-foot">
       <button type="button" class="btn btn-outline btn-sm" id="pw-cancel">Abbrechen</button>
@@ -398,7 +398,7 @@ dialog::backdrop{background:rgba(12,26,32,.45)}
   const deLang = s => parse(s).toLocaleDateString("de-DE", { weekday:"short", day:"2-digit", month:"2-digit", year:"numeric" });
   const deZeit = iso => iso ? new Date(iso).toLocaleString("de-DE", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" }) : "";
   const euro = n => n == null ? "–" : n.toLocaleString("de-DE") + " €";
-  const heute = key(new Date());
+  let heute = key(new Date());   // wird beim Laden durch das Datum des Servers (Europe/Zagreb) ersetzt
   const ueberlappt = (a, b) => a.von < b.bis && a.bis > b.von;
 
   /* ---------- Zustand ---------- */
@@ -468,13 +468,25 @@ dialog::backdrop{background:rgba(12,26,32,.45)}
     try {
       const d = await api("/api/admin/buchungen");
       daten = d.buchungen || [];
-      mailHinweis(d.mail);
+      if (d.heute) heute = d.heute;
+      mailHinweis(d.mail, d.cron);
       renderAlles();
     } catch (e) { if (!e.still) toast(e.message, null, true); }
   }
 
   // Hinweis, wenn automatische Mails nicht eingerichtet oder gestört sind
-  function mailHinweis(m){
+  function mailHinweis(m, cron){
+    const el = $("mail-hinweis");
+    mailHinweisText(m);
+    const alt = cron && cron.stand && Date.now() - Date.parse(cron.stand) > 3 * 86400000;
+    if (cron && (cron.ok === false || alt)) {
+      const t = "Die tägliche Datenschutz-Bereinigung " + (cron.ok === false ? "ist fehlgeschlagen" + (cron.fehler ? " (" + cron.fehler + ")" : "") : "ist seit " + deZeit(cron.stand) + " nicht mehr gelaufen") +
+        " – bitte in Cloudflare unter Workers → mobile-home-api → Logs nachsehen.";
+      if (el.hidden) { el.className = "alert alert-warn"; el.textContent = t; el.hidden = false; }
+      else el.textContent += " " + t;
+    }
+  }
+  function mailHinweisText(m){
     const el = $("mail-hinweis");
     if (!m) { el.hidden = true; return; }
     if (!m.aktiv) {
@@ -703,7 +715,7 @@ dialog::backdrop{background:rgba(12,26,32,.45)}
     toast(`${frei.length} Saison(s) für ${jahr + 1} angelegt – bitte Daten (Wochentage) und Preise prüfen, dann speichern.`);
   });
 
-  $("p-reset").addEventListener("click", () => { if (!preise) return; pEntwurf = kopie(preise); setzeDirty(false); renderPreise(); });
+  $("p-reset").addEventListener("click", async () => { setzeDirty(false); await ladePreise(); if (preise) { pEntwurf = kopie(preise); renderPreise(); } $("p-err").hidden = true; });
 
   $("preise-form").addEventListener("submit", async e => {
     e.preventDefault();
@@ -727,7 +739,7 @@ dialog::backdrop{background:rgba(12,26,32,.45)}
     } finally { btn.textContent = "Speichern"; btn.disabled = !pDirty; }
   });
   window.addEventListener("beforeunload", e => { if (pDirty) { e.preventDefault(); e.returnValue = ""; } });
-  $("btn-reload").addEventListener("click", laden);
+  $("btn-reload").addEventListener("click", () => { laden(); if (!pDirty) ladePreise(); });
   $("btn-neu").addEventListener("click", () => oeffneDialog(null, { status: "blockiert" }));
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible" && token && !document.querySelector("dialog[open]")) laden();
@@ -1136,8 +1148,8 @@ ${v.user}`,
 
   // Merker „Bestätigungs-Mail gesendet“: nur bei bestätigten Buchungen mit E-Mail; gelb, solange nicht gesendet
   function mailMerker(){
-    // Absage-Mail: nur wenn eine bestehende Anfrage/Buchung neu auf „Abgelehnt“ gesetzt wird und eine E-Mail-Adresse hat
-    $("d-absage-wrap").hidden = !(aktuell && aktuell.status !== "abgelehnt" && $("d-status").value === "abgelehnt" && $("d-email").value.trim());
+    // Absage-Mail: nur wenn eine offene Anfrage auf „Abgelehnt“ gesetzt wird, eine E-Mail-Adresse hat und noch keine Absage bekam
+    $("d-absage-wrap").hidden = !(aktuell && aktuell.status === "anfrage" && !aktuell.absage_gesendet_am && $("d-status").value === "abgelehnt" && $("d-email").value.trim());
     const wrap = $("d-mail-wrap");
     wrap.hidden = !($("d-status").value === "bestaetigt" && $("d-email").value.trim());
     const ok = $("d-mailgesendet").checked;
@@ -1154,6 +1166,12 @@ ${v.user}`,
     if (!von || !bis) { info.textContent = ""; return; }
     if (bis <= von) { info.textContent = "Die Abreise muss nach der Anreise liegen."; return; }
     let t = nTxt(von, bis);
+    if (aktuell && aktuell.status === "bestaetigt" && st === "abgelehnt")
+      t += " · Hinweis: Bestätigte Buchungen besser auf „Storniert“ setzen – es geht keine automatische Absage raus, bitte den Gast selbst informieren.";
+    if (aktuell && aktuell.status === "bestaetigt" && st === "bestaetigt" && (von !== aktuell.von || bis !== aktuell.bis)) {
+      t += " · Zeitraum geändert: Preis wird neu berechnet, danach bitte eine neue Bestätigungs-Mail senden.";
+      if ($("d-mailgesendet").checked) { $("d-mailgesendet").checked = false; mailMerker(); }
+    }
     if (blockierend(st)) {
       const k = daten.filter(x => (!aktuell || x.id !== aktuell.id) && blockierend(x.status) && ueberlappt(x, { von, bis }));
       if (k.length) t += " · ⚠ Überschneidung mit " + k.map(x => STATUS[x.status].t + " " + deKurz(x.von) + "–" + deKurz(x.bis)).join(", ");
@@ -1178,11 +1196,13 @@ ${v.user}`,
         ? await api("/api/admin/buchungen/" + aktuell.id, { method: "PATCH", body })
         : await api("/api/admin/buchungen", { method: "POST", body });
       const vorher = aktuell ? aktuell.status : null;
+      const datumNeu = aktuell && (aktuell.von !== body.von || aktuell.bis !== body.bis);
       $("dlg").close();
       await laden();
       const neu = d.buchung;
       if (neu.status === "bestaetigt" && vorher !== "bestaetigt" && neu.email && !neu.bestaetigung_gesendet_am) toast("Gespeichert und bestätigt – jetzt die Bestätigungs-Mail senden.", { text: "Bestätigungs-Mail öffnen", href: mailBestaetigung(neu) });
-      else if (neu.status === "abgelehnt" && vorher && vorher !== "abgelehnt") absageToast(d.absage, neu);
+      else if (neu.status === "bestaetigt" && vorher === "bestaetigt" && datumNeu && neu.email) toast("Zeitraum geändert – bitte dem Gast eine neue Bestätigungs-Mail senden.", { text: "Bestätigungs-Mail öffnen", href: mailBestaetigung(neu) });
+      else if (neu.status === "abgelehnt" && vorher === "anfrage") absageToast(d.absage, neu);
       else toast("Gespeichert.");
     } catch (ex) {
       if (ex.still) return;
@@ -1214,7 +1234,8 @@ ${v.user}`,
     if (neu.length < 12) { err.textContent = "Mindestens 12 Zeichen."; err.hidden = false; return; }
     if (neu !== $("pw-neu2").value) { err.textContent = "Die neuen Passwörter stimmen nicht überein."; err.hidden = false; return; }
     try {
-      await api("/api/admin/passwort", { method: "POST", body: { alt, neu } });
+      const d = await api("/api/admin/passwort", { method: "POST", body: { alt, neu } });
+      if (d.token) { token = d.token; store.set("mh_token", token); }
       $("dlg-pw").close();
       toast("Passwort geändert.");
     } catch (ex) { if (!ex.still) { err.textContent = ex.message; err.hidden = false; } }
