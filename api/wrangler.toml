@@ -1,0 +1,34 @@
+# Cloudflare Worker: API für Mobile Home (Belegung, Anfragen, Verwaltung)
+name = "mobile-home-api"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "mobile-home"
+# Nach "npx wrangler d1 create mobile-home" die ausgegebene ID hier eintragen:
+database_id = "7d551ed0-74dd-4444-b2e4-e8e35dc080db"
+migrations_dir = "migrations"
+
+# Tägliche Bereinigung (alte Anfragen löschen, Gastdaten anonymisieren) – 03:00 UTC
+[triggers]
+crons = ["0 3 * * *"]
+
+[vars]
+# Von welchen Seiten darf die API aufgerufen werden? (kommagetrennt, ohne Pfad)
+ALLOWED_ORIGINS = "https://leon-wurster-art.github.io,http://localhost:8080"
+# Link zur Verwaltungsseite (für Benachrichtigungs-Mails)
+ADMIN_URL = "https://leon-wurster-art.github.io/mobile-home/admin/"
+ZEITZONE = "Europe/Zagreb"
+MIN_NAECHTE = "3"
+MAX_NAECHTE = "60"
+MAX_PERSONEN = "5"
+# Datenschutz: unbeantwortete/abgelehnte/stornierte Anfragen nach X Tagen löschen,
+# Gastdaten bestätigter Buchungen X Tage nach Abreise anonymisieren
+LOESCHEN_NACH_TAGEN = "180"
+ANONYMISIEREN_NACH_TAGEN = "365"
+
+# Geheimnisse NICHT hier eintragen, sondern per "npx wrangler secret put NAME":
+#   SESSION_SECRET   (Pflicht)  zufälliger Schlüssel zum Signieren der Logins
+#   ICS_TOKEN        (optional) schützt den iCal-Export mit ?token=...
+#   RESEND_API_KEY, NOTIFY_TO, NOTIFY_FROM  (optional) Mail-Benachrichtigung bei neuer Anfrage

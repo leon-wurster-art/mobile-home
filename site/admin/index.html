@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Verwaltung · Mobile Home</title>
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+body{background:var(--muted)}
+.nav{background:rgba(255,255,255,.92)}
+.nav-user{display:flex;align-items:center;gap:6px;font-size:.86rem;color:var(--muted-foreground)}
+.nav-user b{color:var(--foreground);margin-right:6px}
+.nav-user .btn{white-space:nowrap}
+@media(max-width:560px){.nav-user b{display:none}}
+@media(max-width:420px){.brand span:last-child{display:none}}
+.adm{padding-top:28px;padding-bottom:80px}
+.adm-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:20px}
+.tabs{display:inline-flex;background:#e8edef;border-radius:11px;padding:3px;gap:2px;max-width:100%;overflow-x:auto}
+.tabs button{font:inherit;font-size:.86rem;font-weight:600;border:none;background:transparent;color:var(--muted-foreground);padding:7px 14px;border-radius:8px;cursor:pointer;display:inline-flex;gap:7px;align-items:center;white-space:nowrap}
+.tabs button[aria-selected="true"]{background:var(--background);color:var(--foreground);box-shadow:var(--shadow-sm)}
+.tabs button:focus-visible{outline:2px solid var(--primary)}
+.count{min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--accent);color:#fff;font-size:.72rem;display:inline-grid;place-items:center}
+.count:empty{display:none}
+.adm-actions{display:flex;gap:8px}
+.icon-btn{width:38px;padding:0;height:38px}
+
+.st{display:inline-flex;font-size:.72rem;font-weight:600;padding:3px 9px;border-radius:999px;white-space:nowrap}
+.st-anfrage{background:var(--accent-soft);color:#9a4a1c}
+.st-bestaetigt{background:var(--success-soft);color:var(--success)}
+.st-blockiert{background:#e3e8ea;color:#3f4d53}
+.st-abgelehnt{background:var(--destructive-soft);color:var(--destructive)}
+.st-storniert{background:#eef1f2;color:var(--muted-foreground);text-decoration:line-through}
+
+.req-list{display:grid;gap:14px}
+.req{padding:18px 20px}
+.req-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:12px}
+.req-dates{font-weight:700;font-size:1.02rem;letter-spacing:-.01em}
+.req-meta{font-size:.8rem;color:var(--muted-foreground)}
+.req-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 16px;margin-bottom:12px}
+@media(max-width:760px){.req-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.req-grid dt{font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted-foreground)}
+.req-grid dd{font-size:.9rem;overflow-wrap:anywhere}
+.req-grid a,.dlg-body a{color:var(--primary)}
+.req-msg{white-space:pre-wrap;font-size:.88rem;background:var(--muted);border-radius:9px;padding:10px 12px;margin-bottom:12px;overflow-wrap:anywhere}
+.req-actions{display:flex;gap:8px;flex-wrap:wrap}
+.alert{font-size:.82rem;border-radius:9px;padding:9px 12px;margin-bottom:12px}
+.alert-warn{background:var(--accent-soft);color:#7a3d18}
+.alert-err{background:var(--destructive-soft);color:var(--destructive)}
+.alert ul{margin:4px 0 0 18px}
+.empty{text-align:center;padding:56px 20px;color:var(--muted-foreground)}
+.empty b{display:block;color:var(--foreground);font-size:1rem;margin-bottom:4px}
+
+.acal{padding:20px}
+.acal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px;flex-wrap:wrap}
+.acal-months{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+@media(max-width:1000px){.acal-months{grid-template-columns:repeat(2,1fr)}.acal-months>:nth-child(3){display:none}}
+@media(max-width:640px){.acal-months{grid-template-columns:1fr}.acal-months>:nth-child(2){display:none}}
+.aday{position:relative;aspect-ratio:1;border:none;background:transparent;font:inherit;font-size:.8rem;cursor:pointer;border-radius:7px;color:var(--foreground)}
+.aday:hover,.aday:focus-visible{outline:2px solid var(--primary);outline-offset:-2px;z-index:1}
+.aday.past{opacity:.5}
+.aday.n-bestaetigt{background:var(--success);color:#fff;border-radius:0}
+.aday.n-blockiert{background:#5b6b72;color:#fff;border-radius:0}
+.aday.n-anfrage{background:#f6dcc9;color:#7a3d18;border-radius:0}
+.aday.n-start{border-top-left-radius:7px;border-bottom-left-radius:7px}
+.aday.n-end{border-top-right-radius:7px;border-bottom-right-radius:7px}
+.aday.mit-anfrage::after{content:"";position:absolute;top:4px;right:4px;width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 1.5px #fff}
+.aday.today{box-shadow:inset 0 0 0 2px var(--accent)}
+.lg-best{background:var(--success)}.lg-block{background:#5b6b72}.lg-anf{background:#f6dcc9}
+
+.filters{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.filters select,.filters input[type=search]{font:inherit;font-size:.86rem;padding:8px 10px;border:1px solid var(--input);border-radius:9px;background:var(--background);color:var(--foreground)}
+.filters input[type=search]{flex:1;min-width:160px}
+.filters label{font-size:.84rem;color:var(--muted-foreground);display:flex;gap:6px;align-items:center}
+.table-card{overflow:hidden}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.86rem}
+th{text-align:left;font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted-foreground);font-weight:600;padding:11px 14px;border-bottom:1px solid var(--border);white-space:nowrap;background:#fafbfb}
+td{padding:11px 14px;border-bottom:1px solid var(--border);vertical-align:top}
+tbody tr{cursor:pointer}
+tbody tr:hover,tbody tr:focus-visible{background:var(--muted);outline:none}
+tbody tr:last-child td{border-bottom:none}
+td.nowrap{white-space:nowrap}
+.muted{color:var(--muted-foreground)}
+
+dialog{border:none;border-radius:14px;padding:0;width:min(580px,calc(100% - 24px));max-height:calc(100% - 24px);box-shadow:0 20px 50px rgba(12,26,32,.25);color:var(--foreground);margin:auto}
+dialog::backdrop{background:rgba(12,26,32,.45)}
+.dlg-body{padding:22px}
+.dlg-body h3{font-size:1.1rem;font-weight:700;letter-spacing:-.01em;margin-bottom:14px}
+.dlg-foot{display:flex;gap:8px;justify-content:flex-end;padding:14px 22px;border-top:1px solid var(--border);background:var(--muted);flex-wrap:wrap}
+.dlg-foot .spacer{flex:1}
+.dlg-meta{font-size:.76rem;color:var(--muted-foreground);margin-top:2px}
+.dlg-info{font-size:.82rem;color:var(--muted-foreground);margin:-4px 0 12px}
+.mail-links{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}
+.wahl-list{display:grid;gap:8px}
+.wahl-list button{text-align:left;justify-content:space-between;width:100%}
+
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:2000;background:var(--foreground);color:#fff;border-radius:10px;padding:11px 16px;font-size:.88rem;display:flex;gap:14px;align-items:center;box-shadow:var(--shadow-md);width:max-content;max-width:calc(100% - 32px)}
+.toast a{color:#9fd6e4;font-weight:600;white-space:nowrap}
+.toast-err{background:var(--destructive)}
+.toast-err a{color:#fff}
+.login{max-width:400px;margin:56px auto;padding:26px}
+.login h1{font-size:1.3rem;letter-spacing:-.02em;margin-bottom:4px}
+.login .sub{font-size:.85rem;color:var(--muted-foreground);margin-bottom:18px}
+.login .btn{width:100%}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="container nav-inner">
+    <a class="brand" href="../index.html" target="_blank" rel="noopener" title="Öffentliche Website öffnen">
+      <span class="brand-mark" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 16c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><path d="M2 20c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><path d="M12 4l7 7H5z"/></svg></span>
+      <span>Verwaltung</span>
+    </a>
+    <div class="nav-user" id="nav-user" hidden>
+      <b id="user-name"></b>
+      <button class="btn btn-ghost btn-sm" id="btn-pw" type="button">Passwort ändern</button>
+      <button class="btn btn-outline btn-sm" id="btn-logout" type="button">Abmelden</button>
+    </div>
+  </div>
+</nav>
+
+<main class="container adm">
+  <!-- Konfiguration fehlt -->
+  <section id="v-config" hidden>
+    <div class="card login">
+      <h1>API nicht eingerichtet</h1>
+      <p class="sub">In <code>einstellungen.js</code> ist keine <code>apiUrl</code> eingetragen. Ohne API gibt es keine Verwaltung – siehe ANLEITUNG.md.</p>
+    </div>
+  </section>
+
+  <!-- Anmeldung -->
+  <section id="v-login" hidden>
+    <form class="card login" id="login-form">
+      <h1>Anmelden</h1>
+      <p class="sub">Zugang für die Betreuung der Buchungen. Passwort bitte aus dem Passwortmanager (Keeper) verwenden und nicht im Browser speichern.</p>
+      <div class="alert alert-err" id="login-err" hidden></div>
+      <div class="field"><label for="l-name">Name</label><input id="l-name" autocomplete="username" required></div>
+      <div class="field"><label for="l-pw">Passwort</label><input id="l-pw" type="password" autocomplete="current-password" required></div>
+      <button class="btn btn-primary" type="submit" id="login-btn">Anmelden</button>
+    </form>
+  </section>
+
+  <!-- App -->
+  <section id="v-app" hidden>
+    <div class="adm-head">
+      <div class="tabs" role="tablist" aria-label="Ansicht">
+        <button role="tab" data-tab="anfragen" aria-selected="true">Anfragen <span class="count" id="cnt-anfragen"></span></button>
+        <button role="tab" data-tab="kalender" aria-selected="false">Kalender</button>
+        <button role="tab" data-tab="liste" aria-selected="false">Alle Einträge</button>
+      </div>
+      <div class="adm-actions">
+        <button class="btn btn-outline icon-btn" id="btn-reload" type="button" title="Neu laden" aria-label="Neu laden">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+        </button>
+        <button class="btn btn-primary" id="btn-neu" type="button">+ Neuer Eintrag</button>
+      </div>
+    </div>
+
+    <div id="t-anfragen" role="tabpanel"></div>
+
+    <div id="t-kalender" role="tabpanel" hidden>
+      <div class="card acal">
+        <div class="acal-head">
+          <div class="cal-legend" style="margin:0;padding:0;border:0">
+            <span><i class="lg lg-best"></i> bestätigt</span>
+            <span><i class="lg lg-block"></i> gesperrt</span>
+            <span><i class="lg lg-anf"></i> offene Anfrage</span>
+          </div>
+          <div class="cal-nav">
+            <button type="button" id="acal-prev" aria-label="Vorheriger Monat"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+            <button type="button" id="acal-today" class="btn btn-outline btn-sm" style="width:auto;height:34px">Heute</button>
+            <button type="button" id="acal-next" aria-label="Nächster Monat"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
+          </div>
+        </div>
+        <div class="acal-months" id="acal-months"></div>
+        <p class="sum-hint">Jeder Tag steht für die Nacht ab diesem Tag. Klick auf einen freien Tag legt eine Sperre an, Klick auf einen belegten Tag öffnet den Eintrag.</p>
+      </div>
+    </div>
+
+    <div id="t-liste" role="tabpanel" hidden>
+      <div class="filters">
+        <select id="f-status" aria-label="Status filtern">
+          <option value="">Alle Status</option>
+          <option value="anfrage">Anfragen</option>
+          <option value="bestaetigt">Bestätigt</option>
+          <option value="blockiert">Gesperrt</option>
+          <option value="abgelehnt">Abgelehnt</option>
+          <option value="storniert">Storniert</option>
+        </select>
+        <input type="search" id="f-suche" placeholder="Suche nach Name, E-Mail, Notiz …" aria-label="Suche">
+        <label><input type="checkbox" id="f-vergangen"> vergangene anzeigen</label>
+      </div>
+      <div class="card table-card"><div class="table-wrap" id="liste-wrap"></div></div>
+    </div>
+  </section>
+</main>
+
+<!-- Eintrag bearbeiten / anlegen -->
+<dialog id="dlg" aria-labelledby="dlg-title">
+  <form id="dlg-form" novalidate>
+    <div class="dlg-body">
+      <h3 id="dlg-title">Eintrag</h3>
+      <div class="alert alert-err" id="dlg-err" hidden></div>
+      <div class="mail-links" id="dlg-mail"></div>
+      <div class="field">
+        <label for="d-status">Status</label>
+        <select id="d-status">
+          <option value="anfrage">Anfrage (offen)</option>
+          <option value="bestaetigt">Bestätigt (Buchung)</option>
+          <option value="blockiert">Gesperrt (Eigennutzung, Wartung …)</option>
+          <option value="abgelehnt">Abgelehnt</option>
+          <option value="storniert">Storniert</option>
+        </select>
+      </div>
+      <div class="field-row">
+        <div class="field"><label for="d-von">Anreise</label><input id="d-von" type="date" required></div>
+        <div class="field"><label for="d-bis">Abreise</label><input id="d-bis" type="date" required></div>
+      </div>
+      <p class="dlg-info" id="d-info"></p>
+      <div class="field-row">
+        <div class="field"><label for="d-name">Name</label><input id="d-name" maxlength="100"></div>
+        <div class="field"><label for="d-personen">Personen</label><input id="d-personen" type="number" min="1" max="50"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label for="d-email">E-Mail</label><input id="d-email" type="email" maxlength="200"></div>
+        <div class="field"><label for="d-tel">Telefon</label><input id="d-tel" type="tel" maxlength="50"></div>
+      </div>
+      <div class="field"><label for="d-msg">Nachricht des Gastes</label><textarea id="d-msg" rows="2" maxlength="2000"></textarea></div>
+      <div class="field"><label for="d-notiz">Interne Notiz</label><textarea id="d-notiz" rows="2" maxlength="2000" placeholder="z. B. Anzahlung erhalten am …"></textarea></div>
+      <p class="dlg-meta" id="d-meta"></p>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" class="btn btn-danger btn-sm" id="d-del">Löschen</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn btn-outline btn-sm" id="d-cancel">Abbrechen</button>
+      <button type="submit" class="btn btn-primary btn-sm" id="d-save">Speichern</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Auswahl, wenn an einem Tag mehrere Einträge liegen -->
+<dialog id="dlg-wahl" aria-labelledby="wahl-title">
+  <div class="dlg-body">
+    <h3 id="wahl-title">Welcher Eintrag?</h3>
+    <div class="wahl-list" id="wahl-list"></div>
+  </div>
+  <div class="dlg-foot"><button type="button" class="btn btn-outline btn-sm" id="wahl-cancel">Abbrechen</button></div>
+</dialog>
+
+<!-- Passwort ändern -->
+<dialog id="dlg-pw" aria-labelledby="pw-title">
+  <form id="pw-form" novalidate>
+    <div class="dlg-body">
+      <h3 id="pw-title">Passwort ändern</h3>
+      <p class="dlg-info">Neues Passwort im Passwortmanager (Keeper) erzeugen und dort speichern. Mindestens 12 Zeichen.</p>
+      <div class="alert alert-err" id="pw-err" hidden></div>
+      <div class="field"><label for="pw-alt">Bisheriges Passwort</label><input id="pw-alt" type="password" autocomplete="current-password" required></div>
+      <div class="field"><label for="pw-neu">Neues Passwort</label><input id="pw-neu" type="password" autocomplete="new-password" minlength="12" required></div>
+      <div class="field"><label for="pw-neu2">Neues Passwort wiederholen</label><input id="pw-neu2" type="password" autocomplete="new-password" minlength="12" required></div>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" class="btn btn-outline btn-sm" id="pw-cancel">Abbrechen</button>
+      <button type="submit" class="btn btn-primary btn-sm">Speichern</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="../einstellungen.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  const API = (KONFIG.apiUrl || "").replace(/\/+$/, "");
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+  const store = {
+    get: k => { try { return sessionStorage.getItem(k); } catch { return null; } },
+    set: (k, v) => { try { sessionStorage.setItem(k, v); } catch {} },
+    del: k => { try { sessionStorage.removeItem(k); } catch {} },
+  };
+
+  const STATUS = {
+    anfrage:    { t: "Anfrage",   c: "st-anfrage" },
+    bestaetigt: { t: "Bestätigt", c: "st-bestaetigt" },
+    blockiert:  { t: "Gesperrt",  c: "st-blockiert" },
+    abgelehnt:  { t: "Abgelehnt", c: "st-abgelehnt" },
+    storniert:  { t: "Storniert", c: "st-storniert" },
+  };
+  const blockierend = s => s === "bestaetigt" || s === "blockiert";
+  const aktiv = s => s !== "abgelehnt" && s !== "storniert";
+  const statusBadge = s => `<span class="st ${STATUS[s].c}">${STATUS[s].t}</span>`;
+
+  /* ---------- Datum ---------- */
+  const parse = s => { const [y,m,d] = s.split("-").map(Number); return new Date(y, m-1, d); };
+  const key = d => d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+  const addDays = (s, n) => { const d = parse(s); return key(new Date(d.getFullYear(), d.getMonth(), d.getDate() + n)); };
+  const naechte = (von, bis) => Math.round((parse(bis) - parse(von)) / 86400000);
+  const nTxt = (von, bis) => { const n = naechte(von, bis); return n + (n === 1 ? " Nacht" : " Nächte"); };
+  const deKurz = s => s ? parse(s).toLocaleDateString("de-DE", { day:"2-digit", month:"2-digit", year:"numeric" }) : "";
+  const deLang = s => parse(s).toLocaleDateString("de-DE", { weekday:"short", day:"2-digit", month:"2-digit", year:"numeric" });
+  const deZeit = iso => iso ? new Date(iso).toLocaleString("de-DE", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" }) : "";
+  const euro = n => n == null ? "–" : n.toLocaleString("de-DE") + " €";
+  const heute = key(new Date());
+  const ueberlappt = (a, b) => a.von < b.bis && a.bis > b.von;
+
+  /* ---------- Zustand ---------- */
+  let token = store.get("mh_token");
+  let user = store.get("mh_user") || "";
+  let daten = [];
+  let tab = "anfragen";
+  let calView = (() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); })();
+  let aktuell = null;   // Eintrag im Dialog
+
+  /* ---------- API ---------- */
+  async function api(pfad, opt = {}){
+    const headers = { "Content-Type": "application/json" };
+    if (token) headers.Authorization = "Bearer " + token;
+    let r;
+    try {
+      r = await fetch(API + pfad, { method: opt.method || "GET", headers, body: opt.body ? JSON.stringify(opt.body) : undefined, cache: "no-store" });
+    } catch {
+      throw Object.assign(new Error("Keine Verbindung zur API."), { status: 0 });
+    }
+    const d = await r.json().catch(() => ({}));
+    if (r.status === 401 && pfad !== "/api/login") { abmelden(d.fehler || "Bitte erneut anmelden."); throw Object.assign(new Error(d.fehler), { status: 401, still: true }); }
+    if (!r.ok) throw Object.assign(new Error(d.fehler || ("Fehler " + r.status)), { status: r.status, data: d });
+    return d;
+  }
+
+  /* ---------- Ansichten ---------- */
+  function zeige(view){
+    ["v-config", "v-login", "v-app"].forEach(v => $(v).hidden = v !== view);
+    $("nav-user").hidden = view !== "v-app";
+  }
+
+  function abmelden(meldung){
+    token = null; user = ""; daten = [];
+    store.del("mh_token"); store.del("mh_user");
+    document.querySelectorAll("dialog[open]").forEach(d => d.close());
+    zeige("v-login");
+    const err = $("login-err");
+    err.textContent = meldung || ""; err.hidden = !meldung;
+    $("l-pw").value = "";
+  }
+
+  async function start(){
+    zeige("v-app");
+    $("user-name").textContent = user;
+    await laden();
+  }
+
+  $("login-form").addEventListener("submit", async e => {
+    e.preventDefault();
+    const err = $("login-err"), btn = $("login-btn");
+    err.hidden = true; btn.disabled = true; btn.textContent = "Anmelden …";
+    try {
+      const d = await api("/api/login", { method: "POST", body: { name: $("l-name").value.trim(), passwort: $("l-pw").value } });
+      token = d.token; user = d.name;
+      store.set("mh_token", token); store.set("mh_user", user);
+      $("l-pw").value = "";
+      await start();
+    } catch (ex) {
+      err.textContent = ex.message; err.hidden = false;
+    } finally { btn.disabled = false; btn.textContent = "Anmelden"; }
+  });
+  $("btn-logout").addEventListener("click", () => abmelden());
+
+  /* ---------- Daten ---------- */
+  async function laden(){
+    try {
+      const d = await api("/api/admin/buchungen");
+      daten = d.buchungen || [];
+      renderAlles();
+    } catch (e) { if (!e.still) toast(e.message, null, true); }
+  }
+
+  function renderAlles(){
+    const offen = daten.filter(b => b.status === "anfrage").length;
+    $("cnt-anfragen").textContent = offen || "";
+    document.title = (offen ? "(" + offen + ") " : "") + "Verwaltung · " + KONFIG.name;
+    if (tab === "anfragen") renderAnfragen();
+    if (tab === "kalender") renderKalender();
+    if (tab === "liste") renderListe();
+  }
+
+  document.querySelectorAll("[data-tab]").forEach(b => b.addEventListener("click", () => {
+    tab = b.dataset.tab;
+    document.querySelectorAll("[data-tab]").forEach(x => x.setAttribute("aria-selected", x === b));
+    ["anfragen", "kalender", "liste"].forEach(t => $("t-" + t).hidden = t !== tab);
+    renderAlles();
+  }));
+  $("btn-reload").addEventListener("click", laden);
+  $("btn-neu").addEventListener("click", () => oeffneDialog(null, { status: "blockiert" }));
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && token && !document.querySelector("dialog[open]")) laden();
+  });
+
+  /* ---------- Mail-Vorlagen ---------- */
+  const websiteUrl = new URL("../", location.href).href;
+  const mailAdr = s => String(s).replace(/[?&#%\s]/g, c => encodeURIComponent(c));
+  const vorname = b => (b.name || "").trim().split(/\s+/)[0] || "";
+  const mailHref = (b, betreff, text) => "mailto:" + mailAdr(b.email) + "?subject=" + encodeURIComponent(betreff) + "&body=" + encodeURIComponent(text);
+
+  function mailBestaetigung(b){
+    const anz = b.preis_web ? Math.round(b.preis_web * 0.3) : null;
+    return mailHref(b, `Buchungsbestätigung ${KONFIG.name}: ${deKurz(b.von)} – ${deKurz(b.bis)}`,
+`Hallo ${vorname(b)},
+
+vielen Dank für deine Anfrage – wir freuen uns, dir den Aufenthalt in unserem Mobile Home zu bestätigen:
+
+Anreise:  ${deLang(b.von)} (ab 15:00 Uhr)
+Abreise:  ${deLang(b.bis)} (bis 10:00 Uhr)
+Nächte:   ${naechte(b.von, b.bis)}
+Personen: ${b.personen ?? "–"}
+${b.preis_web ? "Preis:    " + euro(b.preis_web) + " inkl. Endreinigung\n" : ""}
+Bitte überweise die Anzahlung von 30 %${anz ? " (" + euro(anz) + ")" : ""} auf folgendes Konto:
+[Kontoinhaber · IBAN · Verwendungszweck]
+
+Der Restbetrag ist 4 Wochen vor Anreise fällig. Infos zur Anreise und Schlüsselübergabe schicken wir dir rechtzeitig vorher.
+
+Viele Grüße
+${user}`);
+  }
+  function mailAbsage(b){
+    return mailHref(b, `Deine Anfrage ${KONFIG.name}: ${deKurz(b.von)} – ${deKurz(b.bis)}`,
+`Hallo ${vorname(b)},
+
+vielen Dank für dein Interesse an unserem Mobile Home. Leider ist es im Zeitraum ${deKurz(b.von)} – ${deKurz(b.bis)} nicht verfügbar.
+
+Vielleicht passt ein anderer Termin? Die freien Zeiträume siehst du hier:
+${websiteUrl}#verfuegbarkeit
+
+Viele Grüße
+${user}`);
+  }
+  const mailLinks = b => b.email ? [
+    { text: "Bestätigungs-Mail", href: mailBestaetigung(b) },
+    { text: "Absage-Mail", href: mailAbsage(b) },
+    { text: "E-Mail schreiben", href: "mailto:" + mailAdr(b.email) },
+  ] : [];
+
+  /* ---------- Status schnell ändern ---------- */
+  async function setzeStatus(b, status){
+    try {
+      const d = await api("/api/admin/buchungen/" + b.id, { method: "PATCH", body: { status, geaendert_am: b.geaendert_am } });
+      await laden();
+      const neu = d.buchung;
+      if (status === "bestaetigt") toast("Buchung bestätigt.", neu.email ? { text: "Bestätigungs-Mail öffnen", href: mailBestaetigung(neu) } : null);
+      else if (status === "abgelehnt") toast("Anfrage abgelehnt.", neu.email ? { text: "Absage-Mail öffnen", href: mailAbsage(neu) } : null);
+      else toast("Gespeichert.");
+    } catch (e) {
+      if (e.still) return;
+      if (e.data && e.data.veraltet) await laden();
+      toast(e.message + konfliktText(e.data), null, true);
+    }
+  }
+  const konfliktText = d => d && d.konflikte && d.konflikte.length
+    ? " (" + d.konflikte.map(k => STATUS[k.status].t + " " + deKurz(k.von) + "–" + deKurz(k.bis)).join(", ") + ")" : "";
+
+  /* ---------- Tab: Anfragen ---------- */
+  function renderAnfragen(){
+    const el = $("t-anfragen");
+    const liste = daten.filter(b => b.status === "anfrage").sort((a, b) => a.von.localeCompare(b.von));
+    if (!liste.length){
+      el.innerHTML = '<div class="card empty"><b>Keine offenen Anfragen</b>Neue Anfragen von der Website erscheinen hier.</div>';
+      return;
+    }
+    el.innerHTML = '<div class="req-list">' + liste.map(b => {
+      const konf = daten.filter(x => x.id !== b.id && blockierend(x.status) && ueberlappt(x, b));
+      const parallel = daten.filter(x => x.id !== b.id && x.status === "anfrage" && ueberlappt(x, b));
+      let hinweise = "";
+      if (konf.length) hinweise += '<div class="alert alert-err">Überschneidet sich mit: ' +
+        konf.map(k => esc(STATUS[k.status].t + " " + deKurz(k.von) + " – " + deKurz(k.bis) + (k.name ? " (" + k.name + ")" : ""))).join(", ") +
+        '. Bestätigen erst nach Anpassung möglich.</div>';
+      if (parallel.length) hinweise += '<div class="alert alert-warn">Weitere offene Anfrage im selben Zeitraum: ' +
+        parallel.map(k => esc(deKurz(k.von) + " – " + deKurz(k.bis) + (k.name ? " (" + k.name + ")" : ""))).join(", ") + '</div>';
+      if (b.von < heute) hinweise += '<div class="alert alert-warn">Die Anreise liegt bereits in der Vergangenheit.</div>';
+      const tel = b.telefon ? `<a href="tel:${esc(b.telefon.replace(/[^\d+]/g, ""))}">${esc(b.telefon)}</a>` : '<span class="muted">–</span>';
+      return `<article class="card req" data-id="${esc(b.id)}">
+        <div class="req-head">
+          <div>
+            <div class="req-dates">${esc(deLang(b.von))} → ${esc(deLang(b.bis))}</div>
+            <div class="req-meta">${nTxt(b.von, b.bis)} · ${esc(b.personen ?? "–")} Personen · eingegangen ${esc(deZeit(b.erstellt_am))}</div>
+          </div>
+          ${statusBadge(b.status)}
+        </div>
+        ${hinweise}
+        <dl class="req-grid">
+          <div><dt>Name</dt><dd>${esc(b.name || "–")}</dd></div>
+          <div><dt>E-Mail</dt><dd>${b.email ? `<a href="mailto:${esc(mailAdr(b.email))}">${esc(b.email)}</a>` : "–"}</dd></div>
+          <div><dt>Telefon</dt><dd>${tel}</dd></div>
+          <div><dt>Preis lt. Website</dt><dd>${esc(euro(b.preis_web))}</dd></div>
+        </dl>
+        ${b.nachricht ? `<p class="req-msg">${esc(b.nachricht)}</p>` : ""}
+        <div class="req-actions">
+          <button class="btn btn-primary btn-sm" data-act="bestaetigen" ${konf.length ? "disabled" : ""}>Bestätigen</button>
+          <button class="btn btn-outline btn-sm" data-act="ablehnen">Ablehnen</button>
+          <button class="btn btn-ghost btn-sm" data-act="bearbeiten">Bearbeiten</button>
+        </div>
+      </article>`;
+    }).join("") + "</div>";
+  }
+  $("t-anfragen").addEventListener("click", e => {
+    const btn = e.target.closest("[data-act]"); if (!btn) return;
+    const b = daten.find(x => x.id === btn.closest("[data-id]").dataset.id); if (!b) return;
+    if (btn.dataset.act === "bestaetigen") { btn.disabled = true; setzeStatus(b, "bestaetigt"); }
+    if (btn.dataset.act === "ablehnen") { btn.disabled = true; setzeStatus(b, "abgelehnt"); }
+    if (btn.dataset.act === "bearbeiten") oeffneDialog(b);
+  });
+
+  /* ---------- Tab: Kalender ---------- */
+  const MONATE = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
+  const WTAGE = ["Mo","Di","Mi","Do","Fr","Sa","So"];
+
+  function eintraegeFuerNacht(ds){
+    return daten.filter(b => aktiv(b.status) && b.von <= ds && ds < b.bis)
+      .sort((a, b) => (blockierend(b.status) - blockierend(a.status)) || a.von.localeCompare(b.von));
+  }
+
+  function renderKalender(){
+    const wrap = $("acal-months");
+    wrap.innerHTML = "";
+    for (let i = 0; i < 3; i++){
+      const y = calView.getFullYear(), m = calView.getMonth() + i;
+      const first = new Date(y, m, 1);
+      const box = document.createElement("div");
+      let html = `<div class="cal-month-title">${MONATE[first.getMonth()]} ${first.getFullYear()}</div><div class="cal-grid">` +
+        WTAGE.map(w => `<div class="cal-wd">${w}</div>`).join("") +
+        "<div></div>".repeat((first.getDay() + 6) % 7);
+      const tage = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
+      for (let t = 1; t <= tage; t++){
+        const ds = key(new Date(first.getFullYear(), first.getMonth(), t));
+        const es = eintraegeFuerNacht(ds);
+        const cls = ["aday"];
+        if (ds < heute) cls.push("past");
+        if (ds === heute) cls.push("today");
+        if (es.length){
+          const top = es[0];
+          cls.push("n-" + top.status);
+          if (top.von === ds) cls.push("n-start");
+          if (addDays(ds, 1) === top.bis) cls.push("n-end");
+          if (blockierend(top.status) && es.some(x => x.status === "anfrage")) cls.push("mit-anfrage");
+        }
+        const titel = es.map(x => STATUS[x.status].t + (x.name ? ": " + x.name : (x.notiz ? ": " + x.notiz : "")) + " (" + deKurz(x.von) + " – " + deKurz(x.bis) + ")").join("\n");
+        const label = deLang(ds) + (titel ? " – " + titel.replace(/\n/g, "; ") : " – frei");
+        html += `<button type="button" class="${cls.join(" ")}" data-ds="${ds}" title="${esc(titel || "frei")}" aria-label="${esc(label)}">${t}</button>`;
+      }
+      box.innerHTML = html + "</div>";
+      wrap.appendChild(box);
+    }
+  }
+  $("acal-months").addEventListener("click", e => {
+    const btn = e.target.closest("[data-ds]"); if (!btn) return;
+    const ds = btn.dataset.ds;
+    const es = eintraegeFuerNacht(ds);
+    if (!es.length) oeffneDialog(null, { status: "blockiert", von: ds, bis: addDays(ds, 1) });
+    else if (es.length === 1) oeffneDialog(es[0]);
+    else waehle(es);
+  });
+  $("acal-prev").addEventListener("click", () => { calView = new Date(calView.getFullYear(), calView.getMonth() - 1, 1); renderKalender(); });
+  $("acal-next").addEventListener("click", () => { calView = new Date(calView.getFullYear(), calView.getMonth() + 1, 1); renderKalender(); });
+  $("acal-today").addEventListener("click", () => { const d = new Date(); calView = new Date(d.getFullYear(), d.getMonth(), 1); renderKalender(); });
+
+  function waehle(es){
+    const list = $("wahl-list");
+    list.innerHTML = "";
+    es.forEach(b => {
+      const btn = document.createElement("button");
+      btn.type = "button"; btn.className = "btn btn-outline";
+      btn.innerHTML = `<span>${esc(deKurz(b.von) + " – " + deKurz(b.bis))} · ${esc(b.name || b.notiz || "ohne Namen")}</span>${statusBadge(b.status)}`;
+      btn.addEventListener("click", () => { $("dlg-wahl").close(); oeffneDialog(b); });
+      list.appendChild(btn);
+    });
+    $("dlg-wahl").showModal();
+  }
+  $("wahl-cancel").addEventListener("click", () => $("dlg-wahl").close());
+
+  /* ---------- Tab: Liste ---------- */
+  function renderListe(){
+    const st = $("f-status").value, q = $("f-suche").value.trim().toLowerCase(), alt = $("f-vergangen").checked;
+    const liste = daten.filter(b =>
+      (!st || b.status === st) &&
+      (alt || b.bis >= heute) &&
+      (!q || [b.name, b.email, b.telefon, b.notiz, b.nachricht].some(v => v && v.toLowerCase().includes(q)))
+    ).sort((a, b) => a.von.localeCompare(b.von));
+    if (!liste.length){
+      $("liste-wrap").innerHTML = '<div class="empty"><b>Keine Einträge</b>Filter anpassen oder „vergangene anzeigen“ aktivieren.</div>';
+      return;
+    }
+    $("liste-wrap").innerHTML = `<table><thead><tr><th>Zeitraum</th><th>Nächte</th><th>Status</th><th>Name / Notiz</th><th>Pers.</th><th>Geändert</th></tr></thead><tbody>` +
+      liste.map(b => `<tr tabindex="0" data-id="${esc(b.id)}">
+        <td class="nowrap">${esc(deKurz(b.von))} – ${esc(deKurz(b.bis))}</td>
+        <td>${naechte(b.von, b.bis)}</td>
+        <td>${statusBadge(b.status)}</td>
+        <td>${esc(b.name || "")}${b.name && b.notiz ? "<br>" : ""}${b.notiz ? `<span class="muted">${esc(b.notiz)}</span>` : ""}${!b.name && !b.notiz ? '<span class="muted">–</span>' : ""}</td>
+        <td>${esc(b.personen ?? "–")}</td>
+        <td class="nowrap muted">${esc(deZeit(b.geaendert_am))}${b.geaendert_von ? "<br>" + esc(b.geaendert_von) : (b.quelle === "web" ? "<br>Website" : "")}</td>
+      </tr>`).join("") + "</tbody></table>";
+  }
+  ["f-status", "f-vergangen"].forEach(id => $(id).addEventListener("change", renderListe));
+  $("f-suche").addEventListener("input", renderListe);
+  $("liste-wrap").addEventListener("click", e => { const tr = e.target.closest("tr[data-id]"); if (tr) oeffneDialog(daten.find(b => b.id === tr.dataset.id)); });
+  $("liste-wrap").addEventListener("keydown", e => { const tr = e.target.closest("tr[data-id]"); if (tr && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); oeffneDialog(daten.find(b => b.id === tr.dataset.id)); } });
+
+  /* ---------- Dialog: Eintrag ---------- */
+  const F = { status: "d-status", von: "d-von", bis: "d-bis", name: "d-name", personen: "d-personen", email: "d-email", telefon: "d-tel", nachricht: "d-msg", notiz: "d-notiz" };
+
+  function oeffneDialog(b, vorgabe = {}){
+    aktuell = b;
+    const w = b || vorgabe;
+    Object.entries(F).forEach(([k, id]) => $(id).value = w[k] ?? "");
+    $("dlg-title").textContent = b ? "Eintrag bearbeiten" : "Neuer Eintrag";
+    $("d-del").hidden = !b;
+    $("dlg-err").hidden = true;
+    $("d-meta").textContent = b
+      ? "Eingegangen " + deZeit(b.erstellt_am) + (b.quelle === "web" ? " über die Website" : "") +
+        " · zuletzt geändert " + deZeit(b.geaendert_am) + (b.geaendert_von ? " von " + b.geaendert_von : "")
+      : "";
+    const ml = $("dlg-mail"); ml.innerHTML = "";
+    (b ? mailLinks(b) : []).forEach(l => { const a = document.createElement("a"); a.className = "btn btn-outline btn-sm"; a.href = l.href; a.textContent = l.text; ml.appendChild(a); });
+    ml.hidden = !ml.children.length;
+    pruefeDialog();
+    $("dlg").showModal();
+  }
+
+  function pruefeDialog(){
+    const von = $("d-von").value, bis = $("d-bis").value, st = $("d-status").value;
+    const info = $("d-info");
+    if (!von || !bis) { info.textContent = ""; return; }
+    if (bis <= von) { info.textContent = "Die Abreise muss nach der Anreise liegen."; return; }
+    let t = nTxt(von, bis);
+    if (blockierend(st)) {
+      const k = daten.filter(x => (!aktuell || x.id !== aktuell.id) && blockierend(x.status) && ueberlappt(x, { von, bis }));
+      if (k.length) t += " · ⚠ Überschneidung mit " + k.map(x => STATUS[x.status].t + " " + deKurz(x.von) + "–" + deKurz(x.bis)).join(", ");
+    }
+    info.textContent = t;
+  }
+  ["d-von", "d-bis", "d-status"].forEach(id => $(id).addEventListener("input", pruefeDialog));
+  $("d-von").addEventListener("change", () => { if ($("d-von").value && (!$("d-bis").value || $("d-bis").value <= $("d-von").value)) { $("d-bis").value = addDays($("d-von").value, 1); pruefeDialog(); } });
+
+  $("dlg-form").addEventListener("submit", async e => {
+    e.preventDefault();
+    const err = $("dlg-err"); err.hidden = true;
+    const body = {};
+    Object.entries(F).forEach(([k, id]) => { const v = $(id).value.trim(); body[k] = v === "" ? null : (k === "personen" ? Number(v) : v); });
+    if (!body.von || !body.bis) { err.textContent = "Bitte Anreise und Abreise angeben."; err.hidden = false; return; }
+    if (aktuell) body.geaendert_am = aktuell.geaendert_am;
+    const btn = $("d-save"); btn.disabled = true;
+    try {
+      const d = aktuell
+        ? await api("/api/admin/buchungen/" + aktuell.id, { method: "PATCH", body })
+        : await api("/api/admin/buchungen", { method: "POST", body });
+      const vorher = aktuell ? aktuell.status : null;
+      $("dlg").close();
+      await laden();
+      const neu = d.buchung;
+      if (neu.status === "bestaetigt" && vorher !== "bestaetigt" && neu.email) toast("Gespeichert und bestätigt.", { text: "Bestätigungs-Mail öffnen", href: mailBestaetigung(neu) });
+      else if (neu.status === "abgelehnt" && vorher !== "abgelehnt" && neu.email) toast("Gespeichert.", { text: "Absage-Mail öffnen", href: mailAbsage(neu) });
+      else toast("Gespeichert.");
+    } catch (ex) {
+      if (ex.still) return;
+      err.textContent = ex.message + konfliktText(ex.data);
+      err.hidden = false;
+      if (ex.data && ex.data.veraltet) laden();
+    } finally { btn.disabled = false; }
+  });
+  $("d-cancel").addEventListener("click", () => $("dlg").close());
+  $("d-del").addEventListener("click", async () => {
+    if (!aktuell) return;
+    const was = deKurz(aktuell.von) + " – " + deKurz(aktuell.bis) + (aktuell.name ? " (" + aktuell.name + ")" : "");
+    if (!confirm("Eintrag " + was + " endgültig löschen?\n\nTipp: Für Absagen besser den Status „Abgelehnt“ oder „Storniert“ verwenden – dann bleibt die Historie erhalten.")) return;
+    try {
+      await api("/api/admin/buchungen/" + aktuell.id, { method: "DELETE" });
+      $("dlg").close();
+      await laden();
+      toast("Eintrag gelöscht.");
+    } catch (ex) { if (!ex.still) { $("dlg-err").textContent = ex.message; $("dlg-err").hidden = false; } }
+  });
+
+  /* ---------- Dialog: Passwort ---------- */
+  $("btn-pw").addEventListener("click", () => { $("pw-form").reset(); $("pw-err").hidden = true; $("dlg-pw").showModal(); });
+  $("pw-cancel").addEventListener("click", () => $("dlg-pw").close());
+  $("pw-form").addEventListener("submit", async e => {
+    e.preventDefault();
+    const err = $("pw-err"); err.hidden = true;
+    const alt = $("pw-alt").value, neu = $("pw-neu").value;
+    if (neu.length < 12) { err.textContent = "Mindestens 12 Zeichen."; err.hidden = false; return; }
+    if (neu !== $("pw-neu2").value) { err.textContent = "Die neuen Passwörter stimmen nicht überein."; err.hidden = false; return; }
+    try {
+      await api("/api/admin/passwort", { method: "POST", body: { alt, neu } });
+      $("dlg-pw").close();
+      toast("Passwort geändert.");
+    } catch (ex) { if (!ex.still) { err.textContent = ex.message; err.hidden = false; } }
+  });
+
+  /* ---------- Toast ---------- */
+  let toastTimer;
+  function toast(text, link, fehler){
+    const t = $("toast");
+    t.innerHTML = "";
+    t.className = "toast" + (fehler ? " toast-err" : "");
+    const s = document.createElement("span"); s.textContent = text; t.appendChild(s);
+    if (link) { const a = document.createElement("a"); a.href = link.href; a.textContent = link.text; t.appendChild(a); }
+    t.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.hidden = true, link || fehler ? 12000 : 3500);
+  }
+
+  /* ---------- Start ---------- */
+  (async () => {
+    if (!API) { zeige("v-config"); return; }
+    if (!token) { zeige("v-login"); return; }
+    try { await api("/api/admin/ich"); await start(); }
+    catch (e) { if (!e.still) abmelden(e.status === 0 ? e.message : ""); }
+  })();
+})();
+</script>
+</body>
+</html>

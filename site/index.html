@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mobile Home Adria · Zelena Laguna, Poreč</title>
+<meta name="description" content="Modernes Mobile Home an der Adria in Istrien, Kroatien. Verfügbarkeit prüfen und direkt anfragen – klimatisiert, überdachte Terrasse, wenige Schritte zum Meer.">
+<meta name="theme-color" content="#0e5e73">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+
+<!-- Vorschau beim Teilen (WhatsApp, Facebook …) -->
+<meta property="og:type" content="website">
+<meta property="og:locale" content="de_DE">
+<meta property="og:title" content="Mobile Home Adria · Zelena Laguna, Poreč">
+<meta property="og:description" content="Modernes Mobile Home an der Adria – Verfügbarkeit prüfen und direkt anfragen.">
+<meta property="og:image" content="https://leon-wurster-art.github.io/mobile-home/images/hero.jpg">
+
+<!-- Alles lokal eingebunden: keine Verbindung zu Google Fonts oder CDNs -->
+<link rel="stylesheet" href="assets/style.css">
+<link rel="preload" href="assets/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+</head>
+<body>
+
+<!-- ================= Navigation ================= -->
+<nav class="nav" id="nav" aria-label="Hauptnavigation">
+  <div class="container nav-inner">
+    <a class="brand" href="#top">
+      <span class="brand-mark" aria-hidden="true">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 16c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><path d="M2 20c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><path d="M12 4l7 7H5z"/></svg>
+      </span>
+      <span id="brand-name">Mobile Home Adria</span>
+    </a>
+    <button class="nav-toggle" id="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links" aria-label="Menü öffnen">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <div class="nav-links" id="nav-links">
+      <a href="#galerie">Galerie</a>
+      <a href="#ausstattung">Ausstattung</a>
+      <a href="#verfuegbarkeit">Verfügbarkeit</a>
+      <a href="#lage">Lage</a>
+      <a href="#wissen">Gut zu wissen</a>
+      <a class="btn btn-primary nav-cta" href="#verfuegbarkeit">Anfragen</a>
+    </div>
+  </div>
+</nav>
+
+<main>
+<!-- ================= Hero ================= -->
+<header class="hero container" id="top">
+  <div class="hero-media" id="hero-media">
+    <span class="ph-hint">Platzhalter – lege dein Bild als images/hero.jpg ab</span>
+    <div class="hero-content">
+      <div class="hero-badges">
+        <span class="badge">Klimatisiert</span>
+        <span class="badge">Überdachte Terrasse</span>
+        <span class="badge">300 m zum Strand</span>
+      </div>
+      <h1 id="hero-title">Dein Platz <em>am Meer</em></h1>
+      <p class="hero-loc">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+        <span id="hero-ort">Zelena Laguna, Poreč · Kroatien</span>
+      </p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="#verfuegbarkeit">Verfügbarkeit prüfen</a>
+        <a class="btn btn-outline" href="#galerie">Fotos ansehen</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="facts">
+    <div class="fact">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      <div><b>4 + 1 Gäste</b><span>2 Schlafzimmer + Schlafcouch</span></div>
+    </div>
+    <div class="fact">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg>
+      <div><b>32 m² + Terrasse</b><span>Baujahr 2022</span></div>
+    </div>
+    <div class="fact">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 16c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><path d="M2 20c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><path d="M4 12c2-2 4-2 6 0s4 2 6 0 3.5-1.8 5-1"/></svg>
+      <div><b>300 m zum Meer</b><span>Kiesstrand &amp; Buchten</span></div>
+    </div>
+    <div class="fact">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="7" cy="21" r="1"/><circle cx="17" cy="21" r="1"/><path d="M5 11V7a7 7 0 0 1 14 0v4"/></svg>
+      <div><b>Eigener Stellplatz</b><span>direkt an der Parzelle</span></div>
+    </div>
+  </div>
+</header>
+
+<!-- ================= Galerie ================= -->
+<section class="section container" id="galerie">
+  <span class="eyebrow">Galerie</span>
+  <h2>Ein Blick ins Mobile Home</h2>
+  <p class="section-sub">Terrasse, Wohnbereich, Schlafzimmer, Küche – und der Weg zum Strand.</p>
+  <div class="gallery">
+    <figure data-img="images/foto-1.jpg" data-alt="Terrasse und Außenansicht des Mobile Homes"><figcaption>Foto 1 · Terrasse / Außenansicht<br>images/foto-1.jpg</figcaption></figure>
+    <figure data-img="images/foto-2.jpg" data-alt="Wohnbereich"><figcaption>Foto 2 · Wohnbereich<br>images/foto-2.jpg</figcaption></figure>
+    <figure data-img="images/foto-3.jpg" data-alt="Schlafzimmer"><figcaption>Foto 3 · Schlafzimmer<br>images/foto-3.jpg</figcaption></figure>
+    <figure data-img="images/foto-4.jpg" data-alt="Küche"><figcaption>Foto 4 · Küche<br>images/foto-4.jpg</figcaption></figure>
+    <figure data-img="images/foto-5.jpg" data-alt="Strand in der Umgebung"><figcaption>Foto 5 · Strand / Umgebung<br>images/foto-5.jpg</figcaption></figure>
+  </div>
+</section>
+
+<!-- ================= Ausstattung ================= -->
+<section class="section container" id="ausstattung">
+  <span class="eyebrow">Ausstattung</span>
+  <h2>Alles da für den Urlaub</h2>
+  <p class="section-sub">Kompakt, modern und komplett eingerichtet – ankommen, Kühlschrank füllen, ans Meer.</p>
+  <div class="amenities">
+    <div class="amenity">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8V6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+      <b>2 Schlafzimmer</b><span>1× Doppelbett, 1× zwei Einzelbetten, plus Schlafcouch im Wohnraum.</span>
+    </div>
+    <div class="amenity">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12h20"/><path d="M12 2v20"/><path d="m4.9 4.9 14.2 14.2"/><path d="m19.1 4.9-14.2 14.2"/></svg>
+      <b>Klimaanlage</b><span>Kühlt im Hochsommer, heizt an kühlen Abenden in der Nebensaison.</span>
+    </div>
+    <div class="amenity">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h.01"/><path d="M2 8.82a15 15 0 0 1 20 0"/><path d="M5 12.86a10 10 0 0 1 14 0"/><path d="M8.5 16.43a5 5 0 0 1 7 0"/></svg>
+      <b>WLAN inklusive</b><span>Stabiles WLAN auf der Parzelle – fürs Streamen am Abend reicht es locker.</span>
+    </div>
+    <div class="amenity">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>
+      <b>Voll ausgestattete Küche</b><span>4 Kochfelder, Kühlschrank mit Gefrierfach, Kaffeemaschine, komplettes Geschirr.</span>
+    </div>
+    <div class="amenity">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+      <b>Überdachte Terrasse</b><span>Esstisch für 6, Loungeecke und Gasgrill – der eigentliche Wohnraum im Sommer.</span>
+    </div>
+    <div class="amenity">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 4 8 6"/><path d="M17 19v2"/><path d="M2 12h20"/><path d="M7 19v2"/><path d="M9 5 7.62 3.62A2.12 2.12 0 1 0 4.62 6.62L6 8"/><path d="M20 17.58A5 5 0 0 0 18 8h-1.26A8 8 0 1 0 4 16.25"/></svg>
+      <b>Eigenes Bad</b><span>Dusche, WC, Waschbecken – dazu Außendusche für den Rückweg vom Strand.</span>
+    </div>
+    <div class="amenity">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.25 16.25h1.5L12 17z"/><path d="M16 14v.5"/><path d="M4.42 11.247A13.152 13.152 0 0 0 4 14.556C4 18.728 7.582 21 12 21s8-2.272 8-6.444a11.702 11.702 0 0 0-.493-3.309"/><path d="M8 14v.5"/><path d="M8.5 8.5c-.384 1.05-1.083 2.028-2.344 2.5-1.931.722-3.576-.297-3.656-1-.113-.994 1.177-6.53 4-7 1.923-.321 3.651.845 3.651 2.235A7.497 7.497 0 0 1 14 4.318C14 2.845 15.728 1.679 17.65 2c2.824.47 4.113 6.006 4 7-.08.703-1.725 1.722-3.656 1-1.261-.472-1.855-1.45-2.239-2.5"/></svg>
+      <b>Haustiere willkommen</b><span>Ein Hund ist nach Absprache erlaubt – Aufpreis auf Anfrage, einfach in der Nachricht erwähnen.</span>
+    </div>
+    <div class="amenity">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m17 2-5 5-5-5"/><rect x="2" y="7" width="20" height="15" rx="2"/></svg>
+      <b>Smart-TV</b><span>Mit deinen eigenen Streaming-Konten nutzbar – für Regentage und späte Abende.</span>
+    </div>
+  </div>
+</section>
+
+<!-- ================= Verfügbarkeit ================= -->
+<section class="section container" id="verfuegbarkeit">
+  <span class="eyebrow">Verfügbarkeit</span>
+  <h2>Zeitraum wählen &amp; anfragen</h2>
+  <p class="section-sub">Wähle im Kalender zuerst deinen Anreisetag, dann den Abreisetag. Durchgestrichene Tage sind bereits belegt. Die Anfrage ist unverbindlich – wir melden uns innerhalb von 24 Stunden.</p>
+
+  <div class="book-layout">
+    <!-- Kalender -->
+    <div class="card cal-card" id="cal-card">
+      <div class="cal-head">
+        <span class="badge badge-primary" id="cal-status" aria-live="polite">Anreise wählen</span>
+        <div class="cal-nav">
+          <button type="button" id="cal-prev" aria-label="Vorheriger Monat">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <button type="button" id="cal-next" aria-label="Nächster Monat">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+          </button>
+        </div>
+      </div>
+      <p class="cal-note" id="cal-note" hidden></p>
+      <div class="cal-months" id="cal-months"></div>
+      <div class="cal-legend">
+        <span><i class="lg lg-free"></i> frei</span>
+        <span><i class="lg lg-blocked"></i> belegt</span>
+        <span><i class="lg lg-sel"></i> deine Auswahl</span>
+      </div>
+    </div>
+
+    <!-- Zusammenfassung & Anfrage -->
+    <div class="card summary" id="summary">
+      <h3>Deine Anfrage</h3>
+      <p class="sub" id="sum-price-hint">ab 75 € pro Nacht</p>
+      <div class="sum-dates">
+        <div class="sum-date"><span class="lbl">Anreise</span><output id="sum-start">–</output></div>
+        <div class="sum-date"><span class="lbl">Abreise</span><output id="sum-end">–</output></div>
+      </div>
+      <p class="sum-warn" id="sum-warn" role="alert" hidden></p>
+      <div class="sum-rows" id="sum-rows" hidden>
+        <div class="sum-row"><span id="sum-nights-label">Nächte</span><span id="sum-nights-price"></span></div>
+        <div class="sum-row"><span>Endreinigung</span><span id="sum-cleaning"></span></div>
+        <div class="sum-row total"><span>Gesamt (ca.)</span><span id="sum-total"></span></div>
+      </div>
+
+      <div id="sum-ok" hidden></div>
+
+      <form id="req-form" novalidate>
+        <div class="field">
+          <label for="f-name">Name</label>
+          <input id="f-name" name="name" type="text" autocomplete="name" placeholder="Vor- und Nachname" maxlength="100" required>
+        </div>
+        <div class="field">
+          <label for="f-email">E-Mail</label>
+          <input id="f-email" name="email" type="email" autocomplete="email" placeholder="fuer@die-antwort.de" maxlength="200" required>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="f-tel">Telefon <span class="opt">(optional)</span></label>
+            <input id="f-tel" name="telefon" type="tel" autocomplete="tel" maxlength="50">
+          </div>
+          <div class="field">
+            <label for="f-persons">Personen</label>
+            <select id="f-persons" name="personen"></select>
+          </div>
+        </div>
+        <div class="field">
+          <label for="f-msg">Nachricht <span class="opt">(optional)</span></label>
+          <textarea id="f-msg" name="nachricht" rows="2" maxlength="2000" placeholder="Fragen, Hund dabei, Anreisezeit …"></textarea>
+        </div>
+        <!-- Honeypot gegen Spam-Bots: für Menschen unsichtbar -->
+        <div class="hp" aria-hidden="true"><label>Website <input id="f-website" name="website" type="text" tabindex="-1" autocomplete="off"></label></div>
+        <label class="check">
+          <input type="checkbox" id="f-ds" required>
+          <span>Ich bin einverstanden, dass meine Angaben zur Bearbeitung der Anfrage gespeichert werden. Details in der <a href="datenschutz.html#anfrage">Datenschutzerklärung</a>.</span>
+        </label>
+        <button class="btn btn-primary" id="btn-request" type="submit" disabled>Unverbindlich anfragen</button>
+        <p class="sum-hint" id="sum-hint">Erst mit unserer Bestätigung wird aus der Anfrage eine Buchung.</p>
+      </form>
+    </div>
+  </div>
+</section>
+
+<!-- ================= Lage ================= -->
+<section class="section container" id="lage">
+  <span class="eyebrow">Lage</span>
+  <h2>Mitten in Istrien, direkt am Wasser</h2>
+  <p class="section-sub">Der Marker zeigt die Parzelle. In der Liste die wichtigsten Entfernungen.</p>
+  <div class="map-layout">
+    <div id="map" aria-label="Karte mit Standort des Mobile Homes">
+      <div class="map-consent" id="map-consent">
+        <div>
+          <b>Interaktive Karte</b>
+          <p>Beim Laden werden Kartenkacheln von OpenStreetMap abgerufen. Dabei wird deine IP-Adresse an die OpenStreetMap Foundation übertragen. <a href="datenschutz.html#karte">Mehr dazu</a></p>
+          <div class="btns">
+            <button type="button" class="btn btn-primary" id="map-load">Karte laden</button>
+            <a class="btn btn-outline" id="map-ext" target="_blank" rel="noopener">In OpenStreetMap öffnen</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="padding:10px 16px">
+      <div class="poi-list">
+        <div class="poi"><b>Strand &amp; Badebucht</b><span>300 m · 4 Min zu Fuß</span></div>
+        <div class="poi"><b>Restaurant &amp; Konoba</b><span>400 m</span></div>
+        <div class="poi"><b>Supermarkt</b><span>600 m</span></div>
+        <div class="poi"><b>Altstadt Poreč</b><span>5 km · 10 Min</span></div>
+        <div class="poi"><b>Rovinj</b><span>35 km · 40 Min</span></div>
+        <div class="poi"><b>Flughafen Pula</b><span>60 km · 55 Min</span></div>
+        <div class="poi"><b>Grenze Slowenien</b><span>45 km</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= Gut zu wissen ================= -->
+<section class="section container" id="wissen">
+  <span class="eyebrow">Gut zu wissen</span>
+  <h2>Check-in, Regeln &amp; Extras</h2>
+  <p class="section-sub">Das Wichtigste vor der Anfrage auf einen Blick – alles Weitere klären wir gern persönlich.</p>
+  <div class="know">
+    <div class="card"><b>Check-in / Check-out</b><p>Anreise ab 15:00 Uhr, Abreise bis 10:00 Uhr. Schlüsselübergabe persönlich oder per Schlüsselbox.</p></div>
+    <div class="card"><b>Mindestaufenthalt</b><p id="know-min">Mindestens 3 Nächte. In der Hauptsaison empfehlen wir Anreise samstags.</p></div>
+    <div class="card"><b>Endreinigung</b><p id="know-clean">Einmalig 60 € pro Aufenthalt. Bettwäsche und Handtücher sind inklusive.</p></div>
+    <div class="card"><b>Bezahlung</b><p>30 % Anzahlung per Überweisung bei Bestätigung, Rest 4 Wochen vor Anreise.</p></div>
+    <div class="card"><b>Stornierung</b><p>Bis 60 Tage vor Anreise kostenlos, danach fällt die Anzahlung an. Kulanz bei Weitervermietung.</p></div>
+    <div class="card"><b>Kurtaxe</b><p>Wird vor Ort vom Campingplatz erhoben (ca. 1–2 € pro Person und Nacht).</p></div>
+  </div>
+</section>
+</main>
+
+<!-- ================= Footer ================= -->
+<footer>
+  <div class="container foot">
+    <div>
+      <b id="foot-name" style="color:var(--foreground)">Mobile Home Adria</b><br>
+      <span id="foot-ort">Zelena Laguna, Poreč · Kroatien</span>
+    </div>
+    <div>
+      Kontakt: <a id="foot-mail" href="#">E-Mail</a> · <span id="foot-tel"></span><br>
+      <span>© <span id="foot-year"></span> · Privatvermietung · Alle Angaben ohne Gewähr</span>
+      <div class="foot-links"><a href="impressum.html">Impressum</a><a href="datenschutz.html">Datenschutz</a></div>
+    </div>
+  </div>
+</footer>
+
+<!-- Einstellungen (Stammdaten, Preise, API-Adresse) -->
+<script src="einstellungen.js"></script>
+
+<script>
+/* ============================================================
+   Ab hier: Logik der Seite. Hier musst du nichts ändern.
+   ============================================================ */
+(function(){
+  "use strict";
+
+  const API = (KONFIG.apiUrl || "").replace(/\/+$/, "");
+  const $ = id => document.getElementById(id);
+
+  /* ---------- Datums-Hilfen (immer lokale Mitternacht, sommerzeitfest) ---------- */
+  const MS_TAG = 86400000;
+  const parse = s => { const [y,m,d] = s.split("-").map(Number); return new Date(y, m-1, d); };
+  const key = d => d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+  const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+  const same = (a, b) => a && b && key(a) === key(b);
+  const nightsBetween = (a, b) => Math.round((b - a) / MS_TAG);
+  const fmt = d => d.toLocaleDateString("de-DE", { weekday:"short", day:"2-digit", month:"short", year:"numeric" });
+  const fmtShort = d => d.toLocaleDateString("de-DE", { day:"2-digit", month:"2-digit", year:"numeric" });
+  const euro = n => n.toLocaleString("de-DE") + " €";
+  const heute = (() => { const t = new Date(); return new Date(t.getFullYear(), t.getMonth(), t.getDate()); })();
+  const horizont = new Date(heute.getFullYear(), heute.getMonth() + (KONFIG.buchbarMonateVoraus || 18) + 1, 1);
+
+  /* ---------- Saisons, Preise, Verfügbarkeit ---------- */
+  const saisons = (KONFIG.saisons || []).map(s => ({ ...s, v: parse(s.von), b: parse(s.bis) }));
+  const saisonFuer = d => saisons.find(s => d >= s.v && d <= s.b);
+  const preisFuerNacht = d => { const s = saisonFuer(d); return s ? s.preisProNacht : KONFIG.standardPreis; };
+  const nightClosed = d => d >= horizont || (KONFIG.nurInSaisonBuchbar && !saisonFuer(d));
+
+  let blockedNights = new Set();
+  const nightBlocked = d => blockedNights.has(key(d));
+  const nightUnavailable = d => nightBlocked(d) || nightClosed(d);
+
+  function setzeBelegung(liste){
+    blockedNights = new Set();
+    liste.forEach(b => { for (let d = parse(b.von), e = parse(b.bis); d < e; d = addDays(d, 1)) blockedNights.add(key(d)); });
+  }
+
+  /* ---------- Texte aus KONFIG einsetzen ---------- */
+  document.title = KONFIG.name + " · " + KONFIG.ort;
+  const set = (id, txt) => { const el = $(id); if (el) el.textContent = txt; };
+  set("brand-name", KONFIG.name);
+  set("hero-ort", KONFIG.ort);
+  set("foot-name", KONFIG.name);
+  set("foot-ort", KONFIG.ort);
+  set("foot-tel", KONFIG.telefon);
+  set("foot-year", new Date().getFullYear());
+  const kuenftigePreise = saisons.filter(s => s.b >= heute).map(s => s.preisProNacht);
+  if (!KONFIG.nurInSaisonBuchbar || !kuenftigePreise.length) kuenftigePreise.push(KONFIG.standardPreis);
+  set("sum-price-hint", "ab " + euro(Math.min(...kuenftigePreise)) + " pro Nacht");
+  set("know-min", "Mindestens " + KONFIG.minNaechte + " Nächte. In der Hauptsaison empfehlen wir Anreise samstags.");
+  set("know-clean", "Einmalig " + euro(KONFIG.endreinigung) + " pro Aufenthalt. Bettwäsche und Handtücher sind inklusive.");
+  const mailA = $("foot-mail");
+  mailA.href = "mailto:" + KONFIG.kontaktEmail;
+  mailA.textContent = KONFIG.kontaktEmail;
+  if (!API) set("sum-hint", "Öffnet dein E-Mail-Programm mit einer vorbereiteten Anfrage. Erst mit unserer Bestätigung wird daraus eine Buchung.");
+
+  const personSel = $("f-persons");
+  for (let i = 1; i <= KONFIG.maxPersonen; i++){
+    const o = document.createElement("option");
+    o.value = i; o.textContent = i + (i === 1 ? " Person" : " Personen");
+    if (i === 2) o.selected = true;
+    personSel.appendChild(o);
+  }
+
+  /* ---------- Mobil-Menü ---------- */
+  const nav = $("nav"), navToggle = $("nav-toggle");
+  navToggle.addEventListener("click", () => {
+    const open = nav.classList.toggle("open");
+    navToggle.setAttribute("aria-expanded", open);
+    navToggle.setAttribute("aria-label", open ? "Menü schließen" : "Menü öffnen");
+  });
+  $("nav-links").addEventListener("click", e => { if (e.target.closest("a")) { nav.classList.remove("open"); navToggle.setAttribute("aria-expanded", false); } });
+
+  /* ---------- Bilder automatisch laden (falls vorhanden) ---------- */
+  document.querySelectorAll(".gallery figure[data-img]").forEach(fig => {
+    const img = new Image();
+    img.alt = fig.dataset.alt || "";
+    img.loading = "lazy";
+    img.onload = () => { fig.prepend(img); fig.classList.add("has-img"); };
+    img.src = fig.dataset.img;
+  });
+  const heroImg = new Image();
+  heroImg.alt = "Außenansicht des Mobile Homes";
+  heroImg.onload = () => { const hm = $("hero-media"); hm.prepend(heroImg); hm.classList.add("has-img"); };
+  heroImg.src = "images/hero.jpg";
+
+  /* ---------- Kalender ---------- */
+  const calCard = $("cal-card"), monthsEl = $("cal-months"), statusEl = $("cal-status");
+  const prevBtn = $("cal-prev"), nextBtn = $("cal-next"), noteEl = $("cal-note");
+  const MONATE = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
+  const WTAGE  = ["Mo","Di","Mi","Do","Fr","Sa","So"];
+  const ersterMonat = new Date(heute.getFullYear(), heute.getMonth(), 1);
+  const letzterMonat = new Date(horizont.getFullYear(), horizont.getMonth() - 2, 1);   // 2 Monate sichtbar
+
+  // Start im ersten Monat mit buchbaren Nächten (z. B. im Winter direkt die neue Saison zeigen)
+  let view = (() => {
+    for (let d = heute; d < horizont; d = addDays(d, 1))
+      if (!nightClosed(d)) { const v = new Date(d.getFullYear(), d.getMonth(), 1); return v > letzterMonat ? letzterMonat : v; }
+    return ersterMonat;
+  })();
+  let selStart = null, selEnd = null;
+  let laedt = !!API;
+
+  // Erste nicht verfügbare Nacht ab Anreise → spätester möglicher Abreisetag
+  function firstUnavailableFrom(start){
+    for (let d = start; d < horizont; d = addDays(d, 1)) if (nightUnavailable(d)) return d;
+    return horizont;
+  }
+  function rangeFree(a, b){
+    for (let d = a; d < b; d = addDays(d, 1)) if (nightUnavailable(d)) return false;
+    return true;
+  }
+
+  function renderMonth(base){
+    const y = base.getFullYear(), m = base.getMonth();
+    const wrap = document.createElement("div");
+    wrap.className = "cal-month";
+    const title = document.createElement("div");
+    title.className = "cal-month-title";
+    title.textContent = MONATE[m] + " " + y;
+    wrap.appendChild(title);
+    const grid = document.createElement("div");
+    grid.className = "cal-grid";
+    WTAGE.forEach(w => { const el = document.createElement("div"); el.className = "cal-wd"; el.textContent = w; grid.appendChild(el); });
+
+    const offset = (new Date(y, m, 1).getDay() + 6) % 7;   // Montag = 0
+    for (let i = 0; i < offset; i++) grid.appendChild(document.createElement("div"));
+
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    const waehltAbreise = selStart && !selEnd;
+    const limit = waehltAbreise ? firstUnavailableFrom(selStart) : null;
+
+    for (let day = 1; day <= daysInMonth; day++){
+      const d = new Date(y, m, day);
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "cal-day";
+      btn.textContent = day;
+      if (same(d, heute)) btn.classList.add("today");
+
+      const past = d < heute, blocked = nightBlocked(d), closed = !blocked && nightClosed(d);
+      if (blocked) btn.classList.add("blocked"); else if (closed) btn.classList.add("closed");
+
+      let disabled;
+      if (!waehltAbreise || d < selStart) {
+        disabled = past || blocked || closed;                  // Anreisetag wählen
+      } else if (same(d, selStart)) {
+        disabled = false;                                      // nochmal klicken = abwählen
+      } else {
+        disabled = d > limit;                                  // Abreise bis einschließlich erster belegter Nacht
+        if (same(d, limit)) btn.classList.remove("blocked", "closed");
+      }
+      btn.disabled = disabled;
+
+      if (same(d, selStart)) btn.classList.add("sel-start");
+      if (same(d, selEnd)) btn.classList.add("sel-end");
+      if (selStart && selEnd && d > selStart && d < selEnd) btn.classList.add("in-range");
+
+      let label = fmt(d);
+      if (blocked) label += ", belegt"; else if (closed && !past) label += ", nicht buchbar";
+      btn.setAttribute("aria-label", label);
+
+      btn.addEventListener("click", () => onDayClick(d));
+      grid.appendChild(btn);
+    }
+    wrap.appendChild(grid);
+    return wrap;
+  }
+
+  function render(){
+    monthsEl.innerHTML = "";
+    monthsEl.appendChild(renderMonth(view));
+    monthsEl.appendChild(renderMonth(new Date(view.getFullYear(), view.getMonth() + 1, 1)));
+    prevBtn.disabled = view <= ersterMonat;
+    nextBtn.disabled = view >= letzterMonat;
+    calCard.classList.toggle("cal-loading", laedt);
+    statusEl.textContent = laedt ? "Lade Verfügbarkeit …" : !selStart ? "Anreise wählen" : (!selEnd ? "Abreise wählen" : "Zeitraum gewählt");
+    updateSummary();
+  }
+
+  function onDayClick(d){
+    if (!selStart || selEnd){ selStart = d; selEnd = null; }
+    else if (same(d, selStart)){ selStart = null; }
+    else if (d < selStart){ selStart = d; }
+    else { selEnd = d; }
+    hideOk();
+    render();
+  }
+
+  prevBtn.addEventListener("click", () => { view = new Date(view.getFullYear(), view.getMonth() - 1, 1); render(); });
+  nextBtn.addEventListener("click", () => { view = new Date(view.getFullYear(), view.getMonth() + 1, 1); render(); });
+
+  function zeigeHinweis(text){ noteEl.textContent = text || ""; noteEl.hidden = !text; }
+
+  async function ladeBelegung(frisch){
+    if (!API) return;
+    laedt = true; render();
+    try {
+      const r = await fetch(API + "/api/belegung", { cache: frisch ? "no-store" : "default" });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const data = await r.json();
+      setzeBelegung(data.belegt || []);
+      zeigeHinweis("");
+    } catch (e) {
+      zeigeHinweis("Die aktuelle Belegung konnte nicht geladen werden. Du kannst trotzdem anfragen – wir prüfen die Verfügbarkeit dann manuell.");
+    }
+    laedt = false;
+    if (selStart && selEnd && !rangeFree(selStart, selEnd)) { selStart = selEnd = null; }
+    render();
+  }
+
+  /* ---------- Zusammenfassung & Preis ---------- */
+  const sumWarn = $("sum-warn"), sumRows = $("sum-rows"), btnReq = $("btn-request");
+  const form = $("req-form"), okBox = $("sum-ok");
+  let aktuellerPreis = null;
+
+  function warn(text, mitMailLink){
+    sumWarn.textContent = text || "";
+    if (text && mitMailLink){
+      sumWarn.append(" ");
+      const a = document.createElement("a");
+      a.href = mailtoHref(); a.textContent = "Anfrage stattdessen per E-Mail senden";
+      sumWarn.append(a);
+    }
+    sumWarn.hidden = !text;
+  }
+
+  function updateSummary(){
+    $("sum-start").textContent = selStart ? fmt(selStart) : "–";
+    $("sum-end").textContent = selEnd ? fmt(selEnd) : "–";
+    warn("");
+    sumRows.hidden = true;
+    btnReq.disabled = true;
+    aktuellerPreis = null;
+    if (!selStart || !selEnd) return;
+
+    const nights = nightsBetween(selStart, selEnd);
+    if (nights < KONFIG.minNaechte){
+      warn("Mindestaufenthalt: " + KONFIG.minNaechte + " Nächte. Bitte wähle einen längeren Zeitraum.");
+      return;
+    }
+    let total = 0;
+    for (let d = selStart; d < selEnd; d = addDays(d, 1)) total += preisFuerNacht(d);
+    aktuellerPreis = total + KONFIG.endreinigung;
+    $("sum-nights-label").textContent = nights + " Nächte";
+    $("sum-nights-price").textContent = euro(total);
+    $("sum-cleaning").textContent = euro(KONFIG.endreinigung);
+    $("sum-total").textContent = euro(aktuellerPreis);
+    sumRows.hidden = false;
+    btnReq.disabled = false;
+  }
+
+  function formDaten(){
+    return {
+      name: $("f-name").value.trim(),
+      email: $("f-email").value.trim(),
+      telefon: $("f-tel").value.trim(),
+      personen: Number(personSel.value),
+      nachricht: $("f-msg").value.trim(),
+    };
+  }
+
+  function mailtoHref(){
+    const f = formDaten();
+    const subject = "Buchungsanfrage " + KONFIG.name + (selStart && selEnd ? ": " + fmtShort(selStart) + " – " + fmtShort(selEnd) : "");
+    const body =
+      "Hallo,\n\nich möchte das Mobile Home gerne anfragen:\n\n" +
+      (selStart ? "Anreise:  " + fmt(selStart) + "\n" : "") +
+      (selEnd ? "Abreise:  " + fmt(selEnd) + "\nNächte:   " + nightsBetween(selStart, selEnd) + "\n" : "") +
+      "Personen: " + f.personen + "\n" +
+      (f.name ? "Name:     " + f.name + "\n" : "") +
+      (f.telefon ? "Telefon:  " + f.telefon + "\n" : "") +
+      (f.nachricht ? "\nNachricht:\n" + f.nachricht + "\n" : "") +
+      "\nViele Grüße" + (f.name ? "\n" + f.name : "");
+    return "mailto:" + KONFIG.kontaktEmail + "?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
+  }
+
+  function zeigeOk(name){
+    okBox.innerHTML = "";
+    const box = document.createElement("div");
+    box.className = "sum-ok";
+    const b = document.createElement("b");
+    b.textContent = "Danke" + (name ? ", " + name.split(" ")[0] : "") + "!";
+    const p = document.createElement("span");
+    p.textContent = "Deine Anfrage für " + fmtShort(selStart) + " – " + fmtShort(selEnd) +
+      " ist angekommen. Wir melden uns innerhalb von 24 Stunden per E-Mail.";
+    box.append(b, p);
+    const again = document.createElement("button");
+    again.type = "button"; again.className = "btn btn-outline"; again.textContent = "Weitere Anfrage stellen";
+    again.addEventListener("click", () => { selStart = selEnd = null; hideOk(); render(); });
+    okBox.append(box, again);
+    okBox.hidden = false;
+    form.hidden = true;
+  }
+  function hideOk(){ okBox.hidden = true; form.hidden = false; }
+
+  form.addEventListener("submit", async e => {
+    e.preventDefault();
+    if (!selStart || !selEnd) return;
+    if (!form.reportValidity()) return;
+    if (!API){ location.href = mailtoHref(); return; }
+
+    const f = formDaten();
+    const payload = {
+      ...f, von: key(selStart), bis: key(selEnd), preis: aktuellerPreis,
+      datenschutz: $("f-ds").checked, website: $("f-website").value,
+    };
+    btnReq.disabled = true;
+    btnReq.textContent = "Wird gesendet …";
+    try {
+      const r = await fetch(API + "/api/anfragen", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (r.ok) {
+        zeigeOk(f.name);
+        form.reset();
+        personSel.value = "2";
+        ladeBelegung(true);
+      } else if (r.status === 409) {
+        await ladeBelegung(true);
+        warn(data.fehler || "Der Zeitraum ist leider nicht mehr frei.");
+      } else {
+        warn(data.fehler || "Die Anfrage konnte nicht gesendet werden.", r.status >= 500 || r.status === 429);
+      }
+    } catch (err) {
+      warn("Die Anfrage konnte nicht gesendet werden (keine Verbindung).", true);
+    } finally {
+      btnReq.textContent = "Unverbindlich anfragen";
+      btnReq.disabled = !(selStart && selEnd && aktuellerPreis != null);
+    }
+  });
+
+  render();
+  ladeBelegung(false);
+
+  /* ---------- Karte: erst nach Klick laden (Datenschutz) ---------- */
+  const k = KONFIG.karte;
+  $("map-ext").href = "https://www.openstreetmap.org/?mlat=" + k.lat + "&mlon=" + k.lng + "#map=" + k.zoom + "/" + k.lat + "/" + k.lng;
+
+  function ladeDatei(tag, attrs){
+    return new Promise((resolve, reject) => {
+      const el = document.createElement(tag);
+      Object.assign(el, attrs);
+      el.onload = resolve; el.onerror = reject;
+      document.head.appendChild(el);
+    });
+  }
+
+  $("map-load").addEventListener("click", async e => {
+    e.target.disabled = true; e.target.textContent = "Lädt …";
+    try {
+      await Promise.all([
+        ladeDatei("link", { rel: "stylesheet", href: "assets/vendor/leaflet/leaflet.css" }),
+        ladeDatei("script", { src: "assets/vendor/leaflet/leaflet.js" }),
+      ]);
+    } catch { e.target.disabled = false; e.target.textContent = "Erneut versuchen"; return; }
+    $("map-consent").remove();
+    const map = L.map("map", { scrollWheelZoom: false }).setView([k.lat, k.lng], k.zoom);
+    map.on("click", () => map.scrollWheelZoom.enable());
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(map);
+    const icon = L.divIcon({
+      className: "",
+      html: '<div style="width:38px;height:38px;border-radius:50% 50% 50% 4px;transform:rotate(-45deg);background:#0e5e73;border:3px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,.3);display:grid;place-items:center"><span style="transform:rotate(45deg);color:#fff;font-size:16px">🏠</span></div>',
+      iconSize: [38,38], iconAnchor: [19,38], popupAnchor: [0,-36]
+    });
+    L.marker([k.lat, k.lng], { icon }).addTo(map).bindPopup("<b style='font-family:Inter,sans-serif'>" + k.markerText + "</b>").openPopup();
+  });
+})();
+</script>
+</body>
+</html>
