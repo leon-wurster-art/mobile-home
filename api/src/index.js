@@ -8,6 +8,8 @@
      POST   /api/login                 Anmeldung Verwaltung → Token
    Verwaltung (Authorization: Bearer <token>):
      GET    /api/admin/ich
+     GET    /api/admin/einstellungen   Preise & Regeln lesen
+     PUT    /api/admin/einstellungen   Preise & Regeln speichern
      GET    /api/admin/buchungen       ?status=anfrage&ab=JJJJ-MM-TT
      POST   /api/admin/buchungen       Eintrag anlegen (Sperre / Buchung)
      PATCH  /api/admin/buchungen/:id   ändern, bestätigen, ablehnen …
@@ -61,6 +63,8 @@ async function route(req, env, ctx) {
     const user = await auth(req, env);
     if (p === "/api/admin/ich" && m === "GET") return json({ name: user });
     if (p === "/api/admin/passwort" && m === "POST") return passwortAendern(req, env, user);
+    if (p === "/api/admin/einstellungen" && m === "GET") return json({ preise: await ladePreise(env) });
+    if (p === "/api/admin/einstellungen" && m === "PUT") return preiseSpeichern(req, env, user);
     if (p === "/api/admin/buchungen" && m === "GET") return liste(env, url);
     if (p === "/api/admin/buchungen" && m === "POST") return anlegen(req, env, user);
     const mm = p.match(/^\/api\/admin\/buchungen\/([0-9a-f-]{36})$/);
@@ -72,10 +76,12 @@ async function route(req, env, ctx) {
 
 /* ---------------- Öffentlich ---------------- */
 async function belegung(env) {
-  const { results } = await env.DB
-    .prepare(`SELECT von, bis FROM buchungen WHERE status IN ${SQL_BLOCKIEREND} AND bis > ? ORDER BY von`)
-    .bind(heute(env)).all();
-  return json({ belegt: results, stand: new Date().toISOString() }, 200, { "Cache-Control": "public, max-age=60" });
+  const [{ results }, p] = await Promise.all([
+    env.DB.prepare(`SELECT von, bis FROM buchungen WHERE status IN ${SQL_BLOCKIEREND} AND bis > ? ORDER BY von`).bind(heute(env)).all(),
+    ladePreise(env),
+  ]);
+  const { geaendert_am, geaendert_von, ...preise } = p;   // interne Felder nicht veröffentlichen
+  return json({ belegt: results, preise, stand: new Date().toISOString() }, 200, { "Cache-Control": "public, max-age=60" });
 }
 
 async function neueAnfrage(req, env, ctx) {
@@ -89,21 +95,25 @@ async function neueAnfrage(req, env, ctx) {
   const bis = V.datum(d.bis, "Abreise");
   const h = heute(env);
   const n = naechte(von, bis);
-  const min = Number(env.MIN_NAECHTE || 1), max = Number(env.MAX_NAECHTE || 60);
+  const p = await ladePreise(env);
+  const max = Number(env.MAX_NAECHTE || 60);
   if (von < h) throw new HttpError(400, "Die Anreise liegt in der Vergangenheit.");
-  if (von > plusTage(h, 730)) throw new HttpError(400, "Anfragen sind höchstens zwei Jahre im Voraus möglich.");
+  if (bis > horizontVon(h, p.buchbarMonateVoraus)) throw new HttpError(400, `Anfragen sind höchstens ${p.buchbarMonateVoraus} Monate im Voraus möglich.`);
   if (n < 1) throw new HttpError(400, "Die Abreise muss nach der Anreise liegen.");
-  if (n < min) throw new HttpError(400, `Mindestaufenthalt: ${min} Nächte.`);
+  const s0 = saisonFuer(p, von);
+  const min = (s0 && s0.minNaechte) || p.minNaechte;
+  if (n < min) throw new HttpError(400, `Mindestaufenthalt${s0 && s0.minNaechte ? " in der " + s0.name : ""}: ${min} Nächte.`);
   if (n > max) throw new HttpError(400, `Höchstens ${max} Nächte pro Anfrage.`);
+  const preis = preisBerechnen(p, von, bis);   // wirft, wenn Nächte außerhalb der Saison liegen
   if (d.datenschutz !== true) throw new HttpError(400, "Bitte bestätige die Datenschutzhinweise.");
 
   const b = {
     name: V.text(d.name, "Name", 100, true),
     email: V.email(d.email, true),
     telefon: V.text(d.telefon, "Telefon", 50),
-    personen: V.int(d.personen, "Personen", 1, Number(env.MAX_PERSONEN || 10), true),
+    personen: V.int(d.personen, "Personen", 1, p.maxPersonen, true),
     nachricht: V.text(d.nachricht, "Nachricht", 2000),
-    preis_web: V.int(d.preis, "Preis", 0, 1000000),
+    preis_web: preis,                            // serverseitig berechnet, nicht vom Browser übernommen
   };
 
   if ((await konflikte(env, von, bis)).length)
@@ -278,6 +288,84 @@ async function konfliktFehler(env, von, bis, ohneId) {
   throw new HttpError(409, "Überschneidung mit einem bestätigten oder gesperrten Zeitraum.", { konflikte: k });
 }
 
+/* ---------------- Preise & Regeln ---------------- */
+const STANDARD_PREISE = {
+  standardPreis: 75, endreinigung: 60, minNaechte: 3, maxPersonen: 5,
+  buchbarMonateVoraus: 18, nurInSaisonBuchbar: true, saisons: [],
+};
+
+async function ladePreise(env) {
+  const r = await env.DB.prepare("SELECT wert, geaendert_am, geaendert_von FROM einstellungen WHERE schluessel = 'preise'").first();
+  if (!r) return { ...STANDARD_PREISE, geaendert_am: null, geaendert_von: null };
+  return { ...STANDARD_PREISE, ...JSON.parse(r.wert), geaendert_am: r.geaendert_am, geaendert_von: r.geaendert_von };
+}
+
+const saisonFuer = (p, ds) => p.saisons.find(s => s.von <= ds && ds <= s.bis);
+
+function preisBerechnen(p, von, bis) {
+  let summe = 0;
+  for (let d = von; d < bis; d = plusTage(d, 1)) {
+    const s = saisonFuer(p, d);
+    if (s) summe += s.preisProNacht;
+    else if (p.nurInSaisonBuchbar) throw new HttpError(400, `Die Nacht ab ${deDatum(d)} ist nicht buchbar (außerhalb der Saison).`);
+    else summe += p.standardPreis;
+  }
+  return summe + p.endreinigung;
+}
+
+// Erster Tag nach dem buchbaren Zeitraum (wie im Kalender der Website)
+function horizontVon(h, monate) {
+  const [y, m] = h.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1 + monate + 1, 1)).toISOString().slice(0, 10);
+}
+
+function preisePruefen(d) {
+  const zahl = (v, feld, min, max) => V.int(v, feld, min, max, true);
+  const p = {
+    standardPreis: zahl(d.standardPreis, "Standardpreis", 0, 10000),
+    endreinigung: zahl(d.endreinigung, "Endreinigung", 0, 10000),
+    minNaechte: zahl(d.minNaechte, "Mindestnächte", 1, 60),
+    maxPersonen: zahl(d.maxPersonen, "Max. Personen", 1, 50),
+    buchbarMonateVoraus: zahl(d.buchbarMonateVoraus, "Buchbar im Voraus", 2, 36),
+    nurInSaisonBuchbar: d.nurInSaisonBuchbar === true,
+  };
+  if (!Array.isArray(d.saisons) || d.saisons.length > 100) throw new HttpError(400, "Saisons: Liste mit höchstens 100 Einträgen erwartet.");
+  p.saisons = d.saisons.map((s, i) => {
+    if (!s || typeof s !== "object") throw new HttpError(400, `Saison ${i + 1}: ungültig.`);
+    const nr = `Saison ${i + 1}`;
+    const r = {
+      name: V.text(s.name, `${nr}: Name`, 40, true),
+      von: V.datum(s.von, `${nr}: Von`),
+      bis: V.datum(s.bis, `${nr}: Bis`),
+      preisProNacht: zahl(s.preisProNacht, `${nr}: Preis pro Nacht`, 0, 10000),
+    };
+    const mn = V.int(s.minNaechte, `${nr}: Mindestnächte`, 1, 60);
+    if (mn) r.minNaechte = mn;
+    if (r.bis < r.von) throw new HttpError(400, `${nr} („${r.name}“): „bis“ liegt vor „von“.`);
+    return r;
+  }).sort((a, b) => a.von.localeCompare(b.von));
+  for (let i = 1; i < p.saisons.length; i++) {
+    const a = p.saisons[i - 1], b = p.saisons[i];
+    if (b.von <= a.bis)
+      throw new HttpError(400, `Saisons überschneiden sich: „${a.name}“ (${deDatum(a.von)}–${deDatum(a.bis)}) und „${b.name}“ (${deDatum(b.von)}–${deDatum(b.bis)}).`);
+  }
+  return p;
+}
+
+async function preiseSpeichern(req, env, user) {
+  const d = await leseJson(req);
+  const p = preisePruefen(d);
+  const jetzt = new Date().toISOString();
+  const r = await env.DB.prepare(
+    `INSERT INTO einstellungen (schluessel, wert, geaendert_am, geaendert_von) VALUES ('preise', ?1, ?2, ?3)
+     ON CONFLICT(schluessel) DO UPDATE SET wert = excluded.wert, geaendert_am = excluded.geaendert_am, geaendert_von = excluded.geaendert_von
+     WHERE einstellungen.geaendert_am IS ?4`
+  ).bind(JSON.stringify(p), jetzt, user, d.geaendert_am ?? null).run();
+  if (!r.meta.changes)
+    throw new HttpError(409, "Die Preise wurden inzwischen von jemand anderem geändert. Bitte neu laden.", { veraltet: true });
+  return json({ preise: await ladePreise(env) });
+}
+
 /* ---------------- Benachrichtigung (optional, ohne Gastdaten) ---------------- */
 async function benachrichtigen(env, b) {
   if (!env.RESEND_API_KEY || !env.NOTIFY_TO || !env.NOTIFY_FROM) return;
@@ -421,7 +509,7 @@ function corsHeaders(req, env) {
   const h = { Vary: "Origin" };
   if (origin && erlaubteOrigins(env).includes(origin)) {
     h["Access-Control-Allow-Origin"] = origin;
-    h["Access-Control-Allow-Methods"] = "GET, POST, PATCH, DELETE, OPTIONS";
+    h["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS";
     h["Access-Control-Allow-Headers"] = "Content-Type, Authorization";
     h["Access-Control-Max-Age"] = "86400";
   }

@@ -6,7 +6,7 @@
 site/                  → öffentliche Website (GitHub Pages)
   index.html           Startseite mit Kalender und Anfrageformular
   admin/index.html     Verwaltung: Anfragen bestätigen, Kalender, Sperren
-  einstellungen.js     Stammdaten, Preise/Saisons, API-Adresse  ← hier pflegst du
+  einstellungen.js     Stammdaten, Kontakt, API-Adresse
   impressum.html, datenschutz.html
   images/              Fotos (hero.jpg, foto-1.jpg … foto-5.jpg)
 api/                   → API als Cloudflare Worker + D1-Datenbank
@@ -67,12 +67,12 @@ npm run benutzer:remote -- anna
 | Anfragen bestätigen / ablehnen | Verwaltung → Tab „Anfragen" |
 | Eigennutzung / Wartung sperren | Verwaltung → Kalender → freien Tag anklicken (oder „+ Neuer Eintrag") |
 | Buchung ändern, verschieben, stornieren | Verwaltung → Eintrag anklicken |
-| Preise, Saisons, Mindestnächte | `site/einstellungen.js` |
+| Preise, Saisons, Mindestnächte, Endreinigung, max. Personen | Verwaltung → Tab „Preise & Regeln“ |
 | Fotos | `site/images/` (hero.jpg, foto-1.jpg … foto-5.jpg; Querformat, ~1600 px, < 500 KB) |
 
 **Überschneidungen:** Die API verhindert, dass sich zwei bestätigte Buchungen oder Sperren überschneiden. Am Abreisetag darf der nächste Gast anreisen.
 
-**Jedes Jahr:** Die Saisons und Preise für das neue Jahr in `einstellungen.js` eintragen. Weil `nurInSaisonBuchbar: true` gesetzt ist, sind Nächte außerhalb der eingetragenen Saisons nicht buchbar.
+**Jedes Jahr:** In der Verwaltung unter „Preise & Regeln“ auf „Saisons ins Folgejahr kopieren“ klicken, Daten und Preise anpassen, speichern. Solange „Nur innerhalb der Saisons buchbar“ angehakt ist, sind Nächte außerhalb der Saisons nicht buchbar. Die Verwaltung warnt, wenn das Saisonende näher als 9 Monate rückt. Den Preis rechnet die API selbst nach; der Preis in einer Anfrage stammt also immer aus den gespeicherten Saisons.
 
 **Datenschutz, läuft automatisch jede Nacht:**
 - Abgelehnte und stornierte Anfragen werden nach 180 Tagen gelöscht.
@@ -101,7 +101,7 @@ Unter `localhost` nutzt die Website automatisch die lokale API.
 ## Vor dem Livegang
 - [ ] `impressum.html` und `datenschutz.html` ausfüllen (gelb markierte Stellen)
 - [ ] E-Mail und Telefon in `einstellungen.js`
-- [ ] Saisons/Preise für 2027 ergänzen
+- [ ] Saisons/Preise ab 15.06.2027 in der Verwaltung ergänzen
 - [ ] Fotos in `site/images/`
 - [ ] `og:image`-Adresse in `site/index.html` auf die echte Domain setzen
 - [ ] Bei Cloudflare den Auftragsverarbeitungsvertrag (DPA) prüfen bzw. akzeptieren

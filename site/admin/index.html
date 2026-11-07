@@ -96,6 +96,30 @@ dialog::backdrop{background:rgba(12,26,32,.45)}
 .wahl-list{display:grid;gap:8px}
 .wahl-list button{text-align:left;justify-content:space-between;width:100%}
 
+.pr-card{padding:20px;margin-bottom:14px}
+.pr-card h3{font-size:1rem;font-weight:700;letter-spacing:-.01em;margin-bottom:12px}
+.pr-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.pr-head h3{margin:0}
+.pr-actions{display:flex;gap:8px;flex-wrap:wrap}
+.pr-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0 14px}
+@media(max-width:900px){.pr-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.pr-table td{padding:6px 6px;border-bottom:1px solid var(--border);vertical-align:middle}
+.pr-table th{padding:8px 6px}
+.pr-table tbody tr{cursor:default}
+.pr-table tbody tr:hover{background:transparent}
+.pr-table input{width:100%;min-width:90px;font:inherit;font-size:.86rem;padding:7px 9px;border:1px solid var(--input);border-radius:8px;background:var(--background);color:var(--foreground)}
+.pr-table input[type=number]{min-width:72px}
+.pr-table input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--ring)}
+.pr-table tr.vergangen input{color:var(--muted-foreground);background:var(--muted)}
+.pr-table tr.konflikt input{border-color:var(--destructive)}
+.pr-del{width:32px;height:32px;padding:0;border-radius:8px;border:1px solid transparent;background:transparent;cursor:pointer;color:var(--muted-foreground);display:grid;place-items:center}
+.pr-del:hover{background:var(--destructive-soft);color:var(--destructive)}
+.pr-foot{position:sticky;bottom:0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:12px 0;background:var(--muted)}
+.pr-foot .spacer{flex:1}
+.pr-foot .alert{margin:0;flex-basis:100%}
+.dirty-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);display:inline-block}
+.aday.zu{color:#b9c3c7;background-image:repeating-linear-gradient(135deg,transparent 0 4px,#eef1f2 4px 6px)}
+.lg-zu{background-image:repeating-linear-gradient(135deg,transparent 0 3px,#e4e9eb 3px 5px);border:1px solid var(--border)}
 .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:2000;background:var(--foreground);color:#fff;border-radius:10px;padding:11px 16px;font-size:.88rem;display:flex;gap:14px;align-items:center;box-shadow:var(--shadow-md);width:max-content;max-width:calc(100% - 32px)}
 .toast a{color:#9fd6e4;font-weight:600;white-space:nowrap}
 .toast-err{background:var(--destructive)}
@@ -150,6 +174,7 @@ dialog::backdrop{background:rgba(12,26,32,.45)}
         <button role="tab" data-tab="anfragen" aria-selected="true">Anfragen <span class="count" id="cnt-anfragen"></span></button>
         <button role="tab" data-tab="kalender" aria-selected="false">Kalender</button>
         <button role="tab" data-tab="liste" aria-selected="false">Alle Einträge</button>
+        <button role="tab" data-tab="preise" aria-selected="false">Preise &amp; Regeln <span class="dirty-dot" id="p-dirty-dot" hidden></span></button>
       </div>
       <div class="adm-actions">
         <button class="btn btn-outline icon-btn" id="btn-reload" type="button" title="Neu laden" aria-label="Neu laden">
@@ -168,6 +193,7 @@ dialog::backdrop{background:rgba(12,26,32,.45)}
             <span><i class="lg lg-best"></i> bestätigt</span>
             <span><i class="lg lg-block"></i> gesperrt</span>
             <span><i class="lg lg-anf"></i> offene Anfrage</span>
+            <span><i class="lg lg-zu"></i> außerhalb Saison</span>
           </div>
           <div class="cal-nav">
             <button type="button" id="acal-prev" aria-label="Vorheriger Monat"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
@@ -194,6 +220,48 @@ dialog::backdrop{background:rgba(12,26,32,.45)}
         <label><input type="checkbox" id="f-vergangen"> vergangene anzeigen</label>
       </div>
       <div class="card table-card"><div class="table-wrap" id="liste-wrap"></div></div>
+    </div>
+
+    <div id="t-preise" role="tabpanel" hidden>
+      <form id="preise-form" novalidate>
+        <div class="card pr-card">
+          <h3>Allgemeine Regeln</h3>
+          <div class="pr-grid">
+            <div class="field"><label for="p-endreinigung">Endreinigung (€)</label><input id="p-endreinigung" type="number" min="0" max="10000" step="1" required></div>
+            <div class="field"><label for="p-minNaechte">Mindestnächte</label><input id="p-minNaechte" type="number" min="1" max="60" step="1" required></div>
+            <div class="field"><label for="p-maxPersonen">Max. Personen</label><input id="p-maxPersonen" type="number" min="1" max="50" step="1" required></div>
+            <div class="field"><label for="p-buchbarMonateVoraus">Buchbar im Voraus (Monate)</label><input id="p-buchbarMonateVoraus" type="number" min="2" max="36" step="1" required></div>
+            <div class="field"><label for="p-standardPreis">Preis außerhalb der Saisons (€/Nacht)</label><input id="p-standardPreis" type="number" min="0" max="10000" step="1" required></div>
+          </div>
+          <label class="check" style="margin:2px 0 0"><input type="checkbox" id="p-nurInSaisonBuchbar">
+            <span><b style="color:var(--foreground)">Nur innerhalb der Saisons buchbar</b> – außerhalb (z. B. Winter, Campingplatz geschlossen) sind keine Anfragen möglich. Ohne Haken gilt dort der Preis „außerhalb der Saisons“.</span></label>
+        </div>
+
+        <div class="card pr-card">
+          <div class="pr-head">
+            <div><h3>Saisons &amp; Preise</h3><p class="dlg-info" style="margin:2px 0 0">„Von“ = erste Nacht, „Bis“ = letzte Nacht der Saison. Mindestnächte leer = Standard; maßgeblich ist die Saison der Anreise.</p></div>
+            <div class="pr-actions">
+              <button type="button" class="btn btn-outline btn-sm" id="p-kopie" title="Saisons des letzten eingetragenen Jahres mit gleichen Daten ins Folgejahr übernehmen">Saisons ins Folgejahr kopieren</button>
+              <button type="button" class="btn btn-outline btn-sm" id="p-add">+ Saison</button>
+            </div>
+          </div>
+          <div class="alert alert-warn" id="p-warn" hidden></div>
+          <div class="table-wrap">
+            <table class="pr-table">
+              <thead><tr><th>Name</th><th>Von</th><th>Bis</th><th>€ / Nacht</th><th>Min. Nächte</th><th><span class="sr-only">Entfernen</span></th></tr></thead>
+              <tbody id="p-rows"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="pr-foot">
+          <div class="alert alert-err" id="p-err" hidden></div>
+          <span class="dlg-meta" id="p-meta"></span>
+          <span class="spacer"></span>
+          <button type="button" class="btn btn-outline" id="p-reset">Änderungen verwerfen</button>
+          <button type="submit" class="btn btn-primary" id="p-save">Speichern</button>
+        </div>
+      </form>
     </div>
   </section>
 </main>
@@ -351,7 +419,7 @@ dialog::backdrop{background:rgba(12,26,32,.45)}
   async function start(){
     zeige("v-app");
     $("user-name").textContent = user;
-    await laden();
+    await Promise.all([laden(), ladePreise()]);
   }
 
   $("login-form").addEventListener("submit", async e => {
@@ -391,9 +459,162 @@ dialog::backdrop{background:rgba(12,26,32,.45)}
   document.querySelectorAll("[data-tab]").forEach(b => b.addEventListener("click", () => {
     tab = b.dataset.tab;
     document.querySelectorAll("[data-tab]").forEach(x => x.setAttribute("aria-selected", x === b));
-    ["anfragen", "kalender", "liste"].forEach(t => $("t-" + t).hidden = t !== tab);
+    ["anfragen", "kalender", "liste", "preise"].forEach(t => $("t-" + t).hidden = t !== tab);
+    $("btn-neu").hidden = tab === "preise";
+    if (tab === "preise" && !pDirty) ladePreise();
     renderAlles();
   }));
+
+  /* ---------- Tab: Preise & Regeln ---------- */
+  let preise = null;      // gespeicherter Stand (mit geaendert_am)
+  let pEntwurf = null;    // Bearbeitungsstand
+  let pDirty = false;
+  const P_ALLG = ["standardPreis", "endreinigung", "minNaechte", "maxPersonen", "buchbarMonateVoraus"];
+  const kopie = o => JSON.parse(JSON.stringify(o));
+
+  async function ladePreise(){
+    try {
+      const d = await api("/api/admin/einstellungen");
+      preise = d.preise;
+      if (!pDirty) { pEntwurf = kopie(preise); renderPreise(); }
+      if (tab === "kalender") renderKalender();
+    } catch (e) { if (!e.still) toast(e.message, null, true); }
+  }
+
+  function setzeDirty(v){
+    pDirty = v;
+    $("p-dirty-dot").hidden = !v;
+    $("p-save").disabled = !v;
+    $("p-reset").disabled = !v;
+  }
+
+  function renderPreise(){
+    if (!pEntwurf) return;
+    P_ALLG.forEach(k => $("p-" + k).value = pEntwurf[k]);
+    $("p-nurInSaisonBuchbar").checked = !!pEntwurf.nurInSaisonBuchbar;
+    $("p-meta").textContent = preise && preise.geaendert_am ? "Zuletzt gespeichert " + deZeit(preise.geaendert_am) + (preise.geaendert_von ? " von " + preise.geaendert_von : "") : "";
+    $("p-err").hidden = true;
+    renderSaisons();
+    setzeDirty(pDirty);
+  }
+
+  function renderSaisons(){
+    const tb = $("p-rows");
+    tb.innerHTML = pEntwurf.saisons.map((s, i) => `<tr data-i="${i}" class="${s.bis && s.bis < heute ? "vergangen" : ""}">
+      <td><input data-k="name" value="${esc(s.name)}" maxlength="40" aria-label="Name"></td>
+      <td><input data-k="von" type="date" value="${esc(s.von)}" aria-label="Von (erste Nacht)"></td>
+      <td><input data-k="bis" type="date" value="${esc(s.bis)}" aria-label="Bis (letzte Nacht)"></td>
+      <td><input data-k="preisProNacht" type="number" min="0" max="10000" step="1" value="${esc(s.preisProNacht)}" aria-label="Preis pro Nacht"></td>
+      <td><input data-k="minNaechte" type="number" min="1" max="60" step="1" value="${esc(s.minNaechte ?? "")}" placeholder="${esc(pEntwurf.minNaechte)}" aria-label="Mindestnächte"></td>
+      <td><button type="button" class="pr-del" data-del="${i}" title="Saison entfernen" aria-label="Saison entfernen">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></td>
+    </tr>`).join("") || `<tr><td colspan="6" class="muted" style="padding:16px 6px">Noch keine Saison eingetragen.</td></tr>`;
+    pruefeSaisons();
+  }
+
+  // Live-Prüfung: Überschneidungen, Lücken, Ende des buchbaren Zeitraums
+  function pruefeSaisons(){
+    const rows = [...$("p-rows").querySelectorAll("tr[data-i]")];
+    rows.forEach(r => r.classList.remove("konflikt"));
+    const hinweise = [];
+    const sortiert = pEntwurf.saisons.map((s, i) => ({ ...s, i })).filter(s => s.von && s.bis).sort((a, b) => a.von.localeCompare(b.von));
+    for (let k = 1; k < sortiert.length; k++){
+      const a = sortiert[k - 1], b = sortiert[k];
+      if (b.von <= a.bis) {
+        hinweise.push(`„${a.name}“ und „${b.name}“ überschneiden sich (${deKurz(b.von)} – ${deKurz(a.bis)}).`);
+        rows.filter(r => [a.i, b.i].includes(Number(r.dataset.i))).forEach(r => r.classList.add("konflikt"));
+      }
+    }
+    pEntwurf.saisons.forEach((s, i) => { if (s.von && s.bis && s.bis < s.von) { hinweise.push(`„${s.name || "Saison " + (i + 1)}“: „Bis“ liegt vor „Von“.`); rows[i] && rows[i].classList.add("konflikt"); } });
+    if (pEntwurf.nurInSaisonBuchbar) {
+      const kuenftig = sortiert.filter(s => s.bis >= heute);
+      if (!kuenftig.length) hinweise.push("Es ist keine aktuelle oder künftige Saison eingetragen – auf der Website ist derzeit nichts buchbar.");
+      else {
+        const ende = kuenftig[kuenftig.length - 1].bis;
+        if (ende < addDays(heute, 270)) hinweise.push(`Buchbar nur bis ${deKurz(ende)} – danach ist keine Saison eingetragen. Tipp: „Saisons ins Folgejahr kopieren“.`);
+      }
+    }
+    const w = $("p-warn");
+    w.innerHTML = hinweise.map(esc).join("<br>");
+    w.hidden = !hinweise.length;
+  }
+
+  $("p-rows").addEventListener("input", e => {
+    const inp = e.target.closest("input[data-k]"); if (!inp) return;
+    const s = pEntwurf.saisons[Number(inp.closest("tr").dataset.i)];
+    const k = inp.dataset.k, v = inp.value.trim();
+    s[k] = (k === "preisProNacht" || k === "minNaechte") ? (v === "" ? null : Number(v)) : v;
+    if (k === "minNaechte" && s.minNaechte == null) delete s.minNaechte;
+    setzeDirty(true);
+    if (k === "von" || k === "bis") inp.closest("tr").classList.toggle("vergangen", !!s.bis && s.bis < heute);
+    pruefeSaisons();
+  });
+  $("p-rows").addEventListener("click", e => {
+    const b = e.target.closest("[data-del]"); if (!b) return;
+    const s = pEntwurf.saisons[Number(b.dataset.del)];
+    if (s.name || s.von) { if (!confirm(`Saison „${s.name || "ohne Namen"}“ ${s.von ? deKurz(s.von) + " – " + deKurz(s.bis) : ""} entfernen?`)) return; }
+    pEntwurf.saisons.splice(Number(b.dataset.del), 1);
+    setzeDirty(true);
+    renderSaisons();
+  });
+  P_ALLG.forEach(k => $("p-" + k).addEventListener("input", e => {
+    pEntwurf[k] = e.target.value === "" ? null : Number(e.target.value);
+    setzeDirty(true);
+    if (k === "minNaechte") $("p-rows").querySelectorAll('input[data-k="minNaechte"]').forEach(i => i.placeholder = e.target.value);
+  }));
+  $("p-nurInSaisonBuchbar").addEventListener("change", e => { pEntwurf.nurInSaisonBuchbar = e.target.checked; setzeDirty(true); pruefeSaisons(); });
+
+  $("p-add").addEventListener("click", () => {
+    const letzte = pEntwurf.saisons.map(s => s.bis).filter(Boolean).sort().pop();
+    const von = letzte && letzte >= heute ? addDays(letzte, 1) : heute;
+    pEntwurf.saisons.push({ name: "", von, bis: addDays(von, 30), preisProNacht: pEntwurf.standardPreis });
+    setzeDirty(true);
+    renderSaisons();
+    const rows = $("p-rows").querySelectorAll("tr[data-i]");
+    rows[rows.length - 1].querySelector("input").focus();
+  });
+
+  // Alle Saisons des letzten eingetragenen Jahres mit gleichen Daten ins Folgejahr übernehmen
+  $("p-kopie").addEventListener("click", () => {
+    const jahre = pEntwurf.saisons.filter(s => s.von).map(s => Number(s.von.slice(0, 4)));
+    if (!jahre.length) { toast("Noch keine Saison zum Kopieren vorhanden.", null, true); return; }
+    const jahr = Math.max(...jahre);
+    const plusJahr = s => { const [y, m, d] = s.split("-").map(Number); const t = new Date(y + 1, m - 1, Math.min(d, new Date(y + 1, m, 0).getDate())); return key(t); };
+    const neu = pEntwurf.saisons.filter(s => s.von && Number(s.von.slice(0, 4)) === jahr)
+      .map(s => ({ ...s, von: plusJahr(s.von), bis: plusJahr(s.bis) }));
+    const frei = neu.filter(n => !pEntwurf.saisons.some(s => s.von <= n.bis && n.von <= s.bis));
+    if (!frei.length) { toast(`Für ${jahr + 1} sind bereits Saisons eingetragen.`, null, true); return; }
+    pEntwurf.saisons.push(...frei);
+    pEntwurf.saisons.sort((a, b) => (a.von || "9").localeCompare(b.von || "9"));
+    setzeDirty(true);
+    renderSaisons();
+    toast(`${frei.length} Saison(s) für ${jahr + 1} angelegt – bitte Daten (Wochentage) und Preise prüfen, dann speichern.`);
+  });
+
+  $("p-reset").addEventListener("click", () => { if (!preise) return; pEntwurf = kopie(preise); setzeDirty(false); renderPreise(); });
+
+  $("preise-form").addEventListener("submit", async e => {
+    e.preventDefault();
+    const err = $("p-err"); err.hidden = true;
+    const leer = pEntwurf.saisons.findIndex(s => !s.name || !s.von || !s.bis || s.preisProNacht == null);
+    if (leer >= 0) { err.textContent = `Saison ${leer + 1}: bitte Name, Von, Bis und Preis ausfüllen.`; err.hidden = false; return; }
+    if (P_ALLG.some(k => pEntwurf[k] == null)) { err.textContent = "Bitte alle allgemeinen Regeln ausfüllen."; err.hidden = false; return; }
+    const btn = $("p-save"); btn.disabled = true; btn.textContent = "Speichert …";
+    try {
+      const { geaendert_von, ...body } = pEntwurf;
+      body.geaendert_am = preise ? preise.geaendert_am : null;
+      const d = await api("/api/admin/einstellungen", { method: "PUT", body });
+      preise = d.preise; pEntwurf = kopie(preise);
+      setzeDirty(false);
+      renderPreise();
+      toast("Preise gespeichert – auf der Website spätestens nach 1 Minute sichtbar.");
+    } catch (ex) {
+      if (ex.still) return;
+      err.textContent = ex.message + (ex.data && ex.data.veraltet ? " (Deine Änderungen sind noch hier – ggf. notieren, dann „verwerfen“.)" : "");
+      err.hidden = false;
+    } finally { btn.textContent = "Speichern"; btn.disabled = !pDirty; }
+  });
+  window.addEventListener("beforeunload", e => { if (pDirty) { e.preventDefault(); e.returnValue = ""; } });
   $("btn-reload").addEventListener("click", laden);
   $("btn-neu").addEventListener("click", () => oeffneDialog(null, { status: "blockiert" }));
   document.addEventListener("visibilitychange", () => {
@@ -494,7 +715,7 @@ ${user}`);
           <div><dt>Name</dt><dd>${esc(b.name || "–")}</dd></div>
           <div><dt>E-Mail</dt><dd>${b.email ? `<a href="mailto:${esc(mailAdr(b.email))}">${esc(b.email)}</a>` : "–"}</dd></div>
           <div><dt>Telefon</dt><dd>${tel}</dd></div>
-          <div><dt>Preis lt. Website</dt><dd>${esc(euro(b.preis_web))}</dd></div>
+          <div><dt>Preis (berechnet)</dt><dd>${esc(euro(b.preis_web))}</dd></div>
         </dl>
         ${b.nachricht ? `<p class="req-msg">${esc(b.nachricht)}</p>` : ""}
         <div class="req-actions">
@@ -539,6 +760,7 @@ ${user}`);
         const cls = ["aday"];
         if (ds < heute) cls.push("past");
         if (ds === heute) cls.push("today");
+        if (!es.length && preise && preise.nurInSaisonBuchbar && !preise.saisons.some(s => s.von <= ds && ds <= s.bis)) cls.push("zu");
         if (es.length){
           const top = es[0];
           cls.push("n-" + top.status);

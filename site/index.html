@@ -311,13 +311,20 @@
   const fmtShort = d => d.toLocaleDateString("de-DE", { day:"2-digit", month:"2-digit", year:"numeric" });
   const euro = n => n.toLocaleString("de-DE") + " €";
   const heute = (() => { const t = new Date(); return new Date(t.getFullYear(), t.getMonth(), t.getDate()); })();
-  const horizont = new Date(heute.getFullYear(), heute.getMonth() + (KONFIG.buchbarMonateVoraus || 18) + 1, 1);
-
-  /* ---------- Saisons, Preise, Verfügbarkeit ---------- */
-  const saisons = (KONFIG.saisons || []).map(s => ({ ...s, v: parse(s.von), b: parse(s.bis) }));
+  /* ---------- Saisons, Preise, Verfügbarkeit ----------
+     Preise & Regeln werden in der Verwaltung gepflegt und kommen über die API.
+     Solange sie fehlen (API nicht erreichbar), ist P = null: Anfrage geht, aber ohne Preisanzeige. */
+  let P = null, saisons = [], horizont;
+  function setzePreise(p){
+    P = p || null;
+    saisons = P ? (P.saisons || []).map(s => ({ ...s, v: parse(s.von), b: parse(s.bis) })) : [];
+    horizont = new Date(heute.getFullYear(), heute.getMonth() + ((P && P.buchbarMonateVoraus) || 18) + 1, 1);
+  }
+  setzePreise(null);
   const saisonFuer = d => saisons.find(s => d >= s.v && d <= s.b);
-  const preisFuerNacht = d => { const s = saisonFuer(d); return s ? s.preisProNacht : KONFIG.standardPreis; };
-  const nightClosed = d => d >= horizont || (KONFIG.nurInSaisonBuchbar && !saisonFuer(d));
+  const preisFuerNacht = d => { const s = saisonFuer(d); return s ? s.preisProNacht : P.standardPreis; };
+  const nightClosed = d => d >= horizont || (!!P && P.nurInSaisonBuchbar && !saisonFuer(d));
+  const minNaechteFuer = start => { const s = saisonFuer(start); return (s && s.minNaechte) || (P ? P.minNaechte : 1); };
 
   let blockedNights = new Set();
   const nightBlocked = d => blockedNights.has(key(d));
@@ -337,22 +344,37 @@
   set("foot-ort", KONFIG.ort);
   set("foot-tel", KONFIG.telefon);
   set("foot-year", new Date().getFullYear());
-  const kuenftigePreise = saisons.filter(s => s.b >= heute).map(s => s.preisProNacht);
-  if (!KONFIG.nurInSaisonBuchbar || !kuenftigePreise.length) kuenftigePreise.push(KONFIG.standardPreis);
-  set("sum-price-hint", "ab " + euro(Math.min(...kuenftigePreise)) + " pro Nacht");
-  set("know-min", "Mindestens " + KONFIG.minNaechte + " Nächte. In der Hauptsaison empfehlen wir Anreise samstags.");
-  set("know-clean", "Einmalig " + euro(KONFIG.endreinigung) + " pro Aufenthalt. Bettwäsche und Handtücher sind inklusive.");
   const mailA = $("foot-mail");
   mailA.href = "mailto:" + KONFIG.kontaktEmail;
   mailA.textContent = KONFIG.kontaktEmail;
   if (!API) set("sum-hint", "Öffnet dein E-Mail-Programm mit einer vorbereiteten Anfrage. Erst mit unserer Bestätigung wird daraus eine Buchung.");
 
   const personSel = $("f-persons");
-  for (let i = 1; i <= KONFIG.maxPersonen; i++){
-    const o = document.createElement("option");
-    o.value = i; o.textContent = i + (i === 1 ? " Person" : " Personen");
-    if (i === 2) o.selected = true;
-    personSel.appendChild(o);
+  function bauePersonen(max){
+    const vorher = Number(personSel.value) || 2;
+    personSel.innerHTML = "";
+    for (let i = 1; i <= max; i++){
+      const o = document.createElement("option");
+      o.value = i; o.textContent = i + (i === 1 ? " Person" : " Personen");
+      personSel.appendChild(o);
+    }
+    personSel.value = String(Math.min(vorher, max));
+  }
+  bauePersonen(5);
+
+  // Texte, die von Preisen & Regeln abhängen (nach dem Laden aus der API)
+  function zeigeRegeln(){
+    if (!P) { set("sum-price-hint", "Preis auf Anfrage"); return; }
+    const kuenftig = saisons.filter(s => s.b >= heute);
+    const preise = kuenftig.map(s => s.preisProNacht);
+    if (!P.nurInSaisonBuchbar || !preise.length) preise.push(P.standardPreis);
+    set("sum-price-hint", "ab " + euro(Math.min(...preise)) + " pro Nacht");
+    const mehr = {};
+    kuenftig.forEach(s => { if (s.minNaechte > P.minNaechte) mehr[s.name] = s.minNaechte; });
+    const zusatz = Object.entries(mehr).map(([n, m]) => "in der " + n + " " + m).join(", ");
+    set("know-min", "Mindestens " + P.minNaechte + " Nächte" + (zusatz ? " (" + zusatz + ")" : "") + ". In der Hauptsaison empfehlen wir Anreise samstags.");
+    set("know-clean", "Einmalig " + euro(P.endreinigung) + " pro Aufenthalt. Bettwäsche und Handtücher sind inklusive.");
+    bauePersonen(P.maxPersonen);
   }
 
   /* ---------- Mobil-Menü ---------- */
@@ -383,16 +405,17 @@
   const MONATE = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
   const WTAGE  = ["Mo","Di","Mi","Do","Fr","Sa","So"];
   const ersterMonat = new Date(heute.getFullYear(), heute.getMonth(), 1);
-  const letzterMonat = new Date(horizont.getFullYear(), horizont.getMonth() - 2, 1);   // 2 Monate sichtbar
+  const letzterMonat = () => new Date(horizont.getFullYear(), horizont.getMonth() - 2, 1);   // 2 Monate sichtbar
 
-  // Start im ersten Monat mit buchbaren Nächten (z. B. im Winter direkt die neue Saison zeigen)
-  let view = (() => {
+  // Erster Monat mit buchbaren Nächten (z. B. im Winter direkt die neue Saison zeigen)
+  function ersterBuchbarerMonat(){
     for (let d = heute; d < horizont; d = addDays(d, 1))
-      if (!nightClosed(d)) { const v = new Date(d.getFullYear(), d.getMonth(), 1); return v > letzterMonat ? letzterMonat : v; }
+      if (!nightClosed(d)) { const v = new Date(d.getFullYear(), d.getMonth(), 1); return v > letzterMonat() ? letzterMonat() : v; }
     return ersterMonat;
-  })();
+  }
+  let view = ersterMonat;
   let selStart = null, selEnd = null;
-  let laedt = !!API;
+  let laedt = !!API, geladen = false, bereit = false;
 
   // Erste nicht verfügbare Nacht ab Anreise → spätester möglicher Abreisetag
   function firstUnavailableFrom(start){
@@ -465,7 +488,7 @@
     monthsEl.appendChild(renderMonth(view));
     monthsEl.appendChild(renderMonth(new Date(view.getFullYear(), view.getMonth() + 1, 1)));
     prevBtn.disabled = view <= ersterMonat;
-    nextBtn.disabled = view >= letzterMonat;
+    nextBtn.disabled = view >= letzterMonat();
     calCard.classList.toggle("cal-loading", laedt);
     statusEl.textContent = laedt ? "Lade Verfügbarkeit …" : !selStart ? "Anreise wählen" : (!selEnd ? "Abreise wählen" : "Zeitraum gewählt");
     updateSummary();
@@ -493,10 +516,13 @@
       if (!r.ok) throw new Error("HTTP " + r.status);
       const data = await r.json();
       setzeBelegung(data.belegt || []);
+      setzePreise(data.preise);
       zeigeHinweis("");
     } catch (e) {
-      zeigeHinweis("Die aktuelle Belegung konnte nicht geladen werden. Du kannst trotzdem anfragen – wir prüfen die Verfügbarkeit dann manuell.");
+      zeigeHinweis("Die aktuelle Belegung konnte nicht geladen werden. Du kannst trotzdem anfragen – wir prüfen Verfügbarkeit und Preis dann manuell.");
     }
+    zeigeRegeln();
+    if (!geladen) { view = ersterBuchbarerMonat(); geladen = true; }
     laedt = false;
     if (selStart && selEnd && !rangeFree(selStart, selEnd)) { selStart = selEnd = null; }
     render();
@@ -505,7 +531,6 @@
   /* ---------- Zusammenfassung & Preis ---------- */
   const sumWarn = $("sum-warn"), sumRows = $("sum-rows"), btnReq = $("btn-request");
   const form = $("req-form"), okBox = $("sum-ok");
-  let aktuellerPreis = null;
 
   function warn(text, mitMailLink){
     sumWarn.textContent = text || "";
@@ -524,23 +549,26 @@
     warn("");
     sumRows.hidden = true;
     btnReq.disabled = true;
-    aktuellerPreis = null;
+    bereit = false;
     if (!selStart || !selEnd) return;
 
     const nights = nightsBetween(selStart, selEnd);
-    if (nights < KONFIG.minNaechte){
-      warn("Mindestaufenthalt: " + KONFIG.minNaechte + " Nächte. Bitte wähle einen längeren Zeitraum.");
+    const min = minNaechteFuer(selStart);
+    if (nights < min){
+      const s = saisonFuer(selStart);
+      warn("Mindestaufenthalt" + (s && s.minNaechte ? " in der " + s.name : "") + ": " + min + " Nächte. Bitte wähle einen längeren Zeitraum.");
       return;
     }
+    bereit = true;
+    btnReq.disabled = false;
+    if (!P) return;                       // ohne Preisdaten: anfragen ja, Preis nennen wir per Mail
     let total = 0;
     for (let d = selStart; d < selEnd; d = addDays(d, 1)) total += preisFuerNacht(d);
-    aktuellerPreis = total + KONFIG.endreinigung;
     $("sum-nights-label").textContent = nights + " Nächte";
     $("sum-nights-price").textContent = euro(total);
-    $("sum-cleaning").textContent = euro(KONFIG.endreinigung);
-    $("sum-total").textContent = euro(aktuellerPreis);
+    $("sum-cleaning").textContent = euro(P.endreinigung);
+    $("sum-total").textContent = euro(total + P.endreinigung);
     sumRows.hidden = false;
-    btnReq.disabled = false;
   }
 
   function formDaten(){
@@ -595,7 +623,7 @@
 
     const f = formDaten();
     const payload = {
-      ...f, von: key(selStart), bis: key(selEnd), preis: aktuellerPreis,
+      ...f, von: key(selStart), bis: key(selEnd),
       datenschutz: $("f-ds").checked, website: $("f-website").value,
     };
     btnReq.disabled = true;
@@ -608,7 +636,7 @@
       if (r.ok) {
         zeigeOk(f.name);
         form.reset();
-        personSel.value = "2";
+        personSel.value = String(Math.min(2, personSel.options.length));
         ladeBelegung(true);
       } else if (r.status === 409) {
         await ladeBelegung(true);
@@ -620,7 +648,7 @@
       warn("Die Anfrage konnte nicht gesendet werden (keine Verbindung).", true);
     } finally {
       btnReq.textContent = "Unverbindlich anfragen";
-      btnReq.disabled = !(selStart && selEnd && aktuellerPreis != null);
+      btnReq.disabled = !bereit;
     }
   });
 
