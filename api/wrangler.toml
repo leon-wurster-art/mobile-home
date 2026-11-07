@@ -16,9 +16,9 @@ crons = ["0 3 * * *"]
 
 [vars]
 # Von welchen Seiten darf die API aufgerufen werden? (kommagetrennt, ohne Pfad)
-ALLOWED_ORIGINS = "https://leon-wurster-art.github.io,http://localhost:8080"
+ALLOWED_ORIGINS = "https://mobile-home-privlaka.com,https://www.mobile-home-privlaka.com,https://leon-wurster-art.github.io,http://localhost:8080"
 # Link zur Verwaltungsseite (für Benachrichtigungs-Mails)
-ADMIN_URL = "https://leon-wurster-art.github.io/mobile-home/admin/"
+ADMIN_URL = "https://mobile-home-privlaka.com/admin/"
 ZEITZONE = "Europe/Zagreb"
 MIN_NAECHTE = "3"
 MAX_NAECHTE = "60"
