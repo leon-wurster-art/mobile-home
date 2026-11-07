@@ -26,7 +26,15 @@ MAX_NAECHTE = "60"   # Obergrenze pro Anfrage (Preise & Mindestnächte: in der V
 LOESCHEN_NACH_TAGEN = "180"
 ANONYMISIEREN_NACH_TAGEN = "365"
 
+# E-Mails (Eingangsbestätigung an Gäste, Benachrichtigung an die Verwaltung)
+# Die Absender-Domain muss beim Mail-Dienst (Brevo oder Resend) bestätigt sein.
+WEBSITE_URL = "https://mobile-home-privlaka.com"
+MAIL_ABSENDER_NAME = "Mobile Home Adria"
+MAIL_ABSENDER_ADRESSE = "anfrage@mobile-home-privlaka.com"
+MAIL_ANTWORT_AN = "jadraleno@web.de"   # Antworten der Gäste landen hier
+
 # Geheimnisse NICHT hier eintragen, sondern per "npx wrangler secret put NAME":
 #   SESSION_SECRET   (Pflicht)  zufälliger Schlüssel zum Signieren der Logins
 #   ICS_TOKEN        (optional) schützt den iCal-Export mit ?token=...
-#   RESEND_API_KEY, NOTIFY_TO, NOTIFY_FROM  (optional) Mail-Benachrichtigung bei neuer Anfrage
+#   BREVO_API_KEY    (oder RESEND_API_KEY) Schlüssel des Mail-Dienstes – ohne ihn werden keine Mails verschickt
+#   NOTIFY_TO        Empfänger der Benachrichtigung bei neuer Anfrage (kommagetrennt möglich)

@@ -122,12 +122,18 @@ async function neueAnfrage(req, env, ctx) {
 
   await limitZaehlen(env, schluessel);
   const jetzt = new Date().toISOString();
+  const id = crypto.randomUUID();
   await env.DB.prepare(
     `INSERT INTO buchungen (id,status,von,bis,name,email,telefon,personen,nachricht,preis_web,sprache,quelle,erstellt_am,geaendert_am)
      VALUES (?,'anfrage',?,?,?,?,?,?,?,?,?,'web',?,?)`
-  ).bind(crypto.randomUUID(), von, bis, b.name, b.email, b.telefon, b.personen, b.nachricht, b.preis_web, b.sprache, jetzt, jetzt).run();
+  ).bind(id, von, bis, b.name, b.email, b.telefon, b.personen, b.nachricht, b.preis_web, b.sprache, jetzt, jetzt).run();
 
-  ctx.waitUntil(benachrichtigen(env, { von, bis, personen: b.personen }).catch(e => console.error("Benachrichtigung:", e)));
+  // Gleichzeitig: Eingangsbestätigung an den Gast + Benachrichtigung an die Verwaltung
+  const a = { id, von, bis, ...b };
+  ctx.waitUntil(Promise.allSettled([
+    eingangBestaetigen(env, a).catch(e => console.error("Eingangsbestätigung:", e)),
+    benachrichtigen(env, a).catch(e => console.error("Benachrichtigung:", e)),
+  ]));
   return json({ ok: true }, 201);
 }
 
@@ -211,15 +217,17 @@ async function liste(env, url) {
 }
 
 async function anlegen(req, env, user) {
-  const f = adminFelder(await leseJson(req), { status: "blockiert" });
+  const d = await leseJson(req);
+  const f = adminFelder(d, { status: "blockiert" });
   const id = crypto.randomUUID();
   const jetzt = new Date().toISOString();
+  const mailAm = d.bestaetigung_gesendet === true ? jetzt : null;
   const r = await env.DB.prepare(
-    `INSERT INTO buchungen (id,status,von,bis,name,email,telefon,personen,nachricht,notiz,quelle,erstellt_am,geaendert_am,geaendert_von)
-     SELECT ?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,'verwaltung',?11,?11,?12
+    `INSERT INTO buchungen (id,status,von,bis,name,email,telefon,personen,nachricht,notiz,quelle,erstellt_am,geaendert_am,geaendert_von,bestaetigung_gesendet_am)
+     SELECT ?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,'verwaltung',?11,?11,?12,?13
      WHERE ?2 NOT IN ${SQL_BLOCKIEREND} OR NOT EXISTS (
        SELECT 1 FROM buchungen WHERE status IN ${SQL_BLOCKIEREND} AND von < ?4 AND bis > ?3)`
-  ).bind(id, f.status, f.von, f.bis, f.name, f.email, f.telefon, f.personen, f.nachricht, f.notiz, jetzt, user).run();
+  ).bind(id, f.status, f.von, f.bis, f.name, f.email, f.telefon, f.personen, f.nachricht, f.notiz, jetzt, user, mailAm).run();
   if (!r.meta.changes) await konfliktFehler(env, f.von, f.bis, id);
   return json({ buchung: await eintrag(env, id) }, 201);
 }
@@ -233,12 +241,16 @@ async function aendern(req, env, user, id) {
 
   const f = adminFelder(d, alt);
   const jetzt = new Date().toISOString();
+  // Merker „Bestätigungs-Mail gesendet“: true → Zeitpunkt setzen (vorhandenen behalten), false → zurücksetzen
+  const mailAm = "bestaetigung_gesendet" in d
+    ? (d.bestaetigung_gesendet === true ? (alt.bestaetigung_gesendet_am || jetzt) : null)
+    : alt.bestaetigung_gesendet_am;
   const r = await env.DB.prepare(
     `UPDATE buchungen SET status=?2, von=?3, bis=?4, name=?5, email=?6, telefon=?7, personen=?8,
-       nachricht=?9, notiz=?10, geaendert_am=?11, geaendert_von=?12
+       nachricht=?9, notiz=?10, geaendert_am=?11, geaendert_von=?12, bestaetigung_gesendet_am=?14
      WHERE id=?1 AND geaendert_am=?13 AND (?2 NOT IN ${SQL_BLOCKIEREND} OR NOT EXISTS (
        SELECT 1 FROM buchungen b WHERE b.id != ?1 AND b.status IN ${SQL_BLOCKIEREND} AND b.von < ?4 AND b.bis > ?3))`
-  ).bind(id, f.status, f.von, f.bis, f.name, f.email, f.telefon, f.personen, f.nachricht, f.notiz, jetzt, user, alt.geaendert_am).run();
+  ).bind(id, f.status, f.von, f.bis, f.name, f.email, f.telefon, f.personen, f.nachricht, f.notiz, jetzt, user, alt.geaendert_am, mailAm).run();
 
   if (!r.meta.changes) {
     const jetzt2 = await eintrag(env, id);
@@ -384,26 +396,152 @@ async function preiseSpeichern(req, env, user) {
   return json({ preise: await ladePreise(env) });
 }
 
-/* ---------------- Benachrichtigung (optional, ohne Gastdaten) ---------------- */
-async function benachrichtigen(env, b) {
-  if (!env.RESEND_API_KEY || !env.NOTIFY_TO || !env.NOTIFY_FROM) return;
-  const zeitraum = `${deDatum(b.von)} – ${deDatum(b.bis)}`;
-  const text =
-    `Neue Buchungsanfrage über die Website\n\n` +
-    `Zeitraum: ${zeitraum} (${naechte(b.von, b.bis)} Nächte)\nPersonen: ${b.personen}\n\n` +
-    `Details und Bearbeitung in der Verwaltung:\n${env.ADMIN_URL || ""}\n\n` +
-    `(Diese Mail enthält bewusst keine Gastdaten.)`;
-  const r = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      from: env.NOTIFY_FROM,
-      to: env.NOTIFY_TO.split(",").map(s => s.trim()).filter(Boolean),
-      subject: `Neue Anfrage: ${zeitraum}`,
-      text,
-    }),
-  });
-  if (!r.ok) console.error("Resend", r.status, await r.text());
+/* ---------------- E-Mails (Brevo oder Resend – je nachdem, welcher Schlüssel hinterlegt ist) ---------------- */
+// Benötigt: BREVO_API_KEY oder RESEND_API_KEY (Secret), MAIL_ABSENDER_ADRESSE (Var, Domain beim Dienst bestätigt)
+const mailAktiv = env => !!((env.BREVO_API_KEY || env.RESEND_API_KEY) && env.MAIL_ABSENDER_ADRESSE);
+
+async function mailSenden(env, { an, betreff, text, html, antwortAn }) {
+  if (!mailAktiv(env)) return false;
+  const name = env.MAIL_ABSENDER_NAME || "Mobile Home";
+  const empfaenger = (Array.isArray(an) ? an : [an]).filter(Boolean);
+  if (!empfaenger.length) return false;
+  let r;
+  if (env.BREVO_API_KEY) {
+    r = await fetch(env.BREVO_API_URL || "https://api.brevo.com/v3/smtp/email", {   // BREVO_API_URL nur für lokale Tests
+      method: "POST",
+      headers: { "api-key": env.BREVO_API_KEY, "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        sender: { name, email: env.MAIL_ABSENDER_ADRESSE },
+        to: empfaenger.map(email => ({ email })),
+        subject: betreff, textContent: text, htmlContent: html,
+        ...(antwortAn ? { replyTo: { email: antwortAn } } : {}),
+      }),
+    });
+  } else {
+    r = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from: `${name} <${env.MAIL_ABSENDER_ADRESSE}>`, to: empfaenger,
+        subject: betreff, text, html, ...(antwortAn ? { reply_to: antwortAn } : {}),
+      }),
+    });
+  }
+  if (!r.ok) { console.error("Mailversand", r.status, await r.text()); return false; }
+  return true;
+}
+
+const htmlEsc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+// Nur den Vornamen verwenden und alles verwerfen, was nach Link/Spam aussieht (Formular ist öffentlich)
+const sichererVorname = n => { const v = String(n || "").trim().split(/\s+/)[0].slice(0, 30); return /[/:@<>\\]|www|http|\.\w{2,}/i.test(v) ? "" : v; };
+
+const LOCALE = { de: "de-DE", en: "en-GB", hr: "hr-HR", sl: "sl-SI" };
+const EINGANG = {
+  de: {
+    betreff: h => `Deine Anfrage ist angekommen – ${h}`,
+    hallo: n => `Hallo${n ? " " + n : ""},`,
+    intro: "vielen Dank für deine Anfrage! Sie ist bei uns angekommen:",
+    felder: ["Anreise", "Abreise", "Nächte", "Personen", "Preis (ca.)"], inkl: "inkl. Endreinigung",
+    weiter: "Die Anfrage ist unverbindlich. Wir prüfen die Verfügbarkeit und melden uns innerhalb von 24 Stunden mit einer Bestätigung oder Rückfrage.",
+    fragen: "Fragen? Antworte einfach auf diese E-Mail.", gruss: "Viele Grüße",
+    fuss: w => `Diese E-Mail wurde automatisch verschickt, weil auf ${w} eine Anfrage mit dieser Adresse gestellt wurde. Falls du das nicht warst, kannst du sie ignorieren.`,
+  },
+  en: {
+    betreff: h => `We've received your enquiry – ${h}`,
+    hallo: n => `Hello${n ? " " + n : ""},`,
+    intro: "Thank you for your enquiry! We have received it:",
+    felder: ["Arrival", "Departure", "Nights", "Guests", "Price (approx.)"], inkl: "incl. final cleaning",
+    weiter: "Your enquiry is non-binding. We'll check availability and get back to you within 24 hours with a confirmation or a question.",
+    fragen: "Questions? Simply reply to this email.", gruss: "Best regards",
+    fuss: w => `This email was sent automatically because an enquiry was made on ${w} using this address. If this wasn't you, you can ignore it.`,
+  },
+  hr: {
+    betreff: h => `Zaprimili smo tvoj upit – ${h}`,
+    hallo: n => `Pozdrav${n ? " " + n : ""},`,
+    intro: "hvala na upitu! Zaprimili smo ga:",
+    felder: ["Dolazak", "Odlazak", "Noći", "Osobe", "Cijena (otprilike)"], inkl: "uključujući završno čišćenje",
+    weiter: "Upit je neobvezujući. Provjerit ćemo dostupnost i javiti ti se u roku od 24 sata s potvrdom ili pitanjem.",
+    fragen: "Pitanja? Jednostavno odgovori na ovu e-poruku.", gruss: "Srdačan pozdrav",
+    fuss: w => `Ova je e-poruka poslana automatski jer je na ${w} poslan upit s ovom adresom. Ako to nisi bio/bila ti, slobodno je zanemari.`,
+  },
+  sl: {
+    betreff: h => `Prejeli smo tvoje povpraševanje – ${h}`,
+    hallo: n => `Dober dan${n ? ", " + n : ""},`,
+    intro: "hvala za povpraševanje! Prejeli smo ga:",
+    felder: ["Prihod", "Odhod", "Noči", "Osebe", "Cena (približno)"], inkl: "vključno s končnim čiščenjem",
+    weiter: "Povpraševanje je nezavezujoče. Preverili bomo razpoložljivost in se ti v 24 urah oglasili s potrditvijo ali vprašanjem.",
+    fragen: "Vprašanja? Preprosto odgovori na to e-pošto.", gruss: "Lep pozdrav",
+    fuss: w => `To e-sporočilo je bilo poslano samodejno, ker je bilo na ${w} poslano povpraševanje s tem naslovom. Če to nisi bil/a ti, ga lahko prezreš.`,
+  },
+};
+
+// Automatische Eingangsbestätigung an den Gast (in seiner Sprache)
+async function eingangBestaetigen(env, a) {
+  if (!mailAktiv(env) || !a.email) return;
+  // Schutz gegen Missbrauch des öffentlichen Formulars: höchstens 40 automatische Gäste-Mails pro Tag
+  const tagSchluessel = "mail:gast";
+  const n = await env.DB.prepare("SELECT COUNT(*) AS n FROM rate_limit WHERE schluessel = ? AND zeit > ?").bind(tagSchluessel, Date.now() - 86400000).first();
+  if (n.n >= 40) { console.error("Tageslimit Eingangsbestätigungen erreicht"); return; }
+
+  const l = EINGANG[a.sprache] ? a.sprache : "de", T = EINGANG[l], loc = LOCALE[l];
+  const haus = env.MAIL_ABSENDER_NAME || "Mobile Home";
+  const web = (env.WEBSITE_URL || "").replace(/\/+$/, "");
+  const webSprache = web ? `${web}/?lang=${l}` : "";
+  const datum = s => new Date(s + "T12:00:00Z").toLocaleDateString(loc, { weekday: "short", day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
+  const preis = a.preis_web != null ? new Intl.NumberFormat(loc, { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(a.preis_web) + " " + T.inkl : "";
+  const zeilen = [[T.felder[0], datum(a.von)], [T.felder[1], datum(a.bis)], [T.felder[2], naechte(a.von, a.bis)], [T.felder[3], a.personen]];
+  if (preis) zeilen.push([T.felder[4], preis]);
+  const vorname = sichererVorname(a.name);
+  const breite = Math.max(...zeilen.map(z => z[0].length)) + 2;
+
+  const text = [
+    T.hallo(vorname), "", T.intro, "",
+    ...zeilen.map(([k, v]) => (k + ":").padEnd(breite) + v), "",
+    T.weiter, "", T.fragen, "", T.gruss, haus, webSprache, "", "—", T.fuss(web || haus),
+  ].join("\n");
+  const html = `<!doctype html><html lang="${l}"><body style="margin:0;background:#f4f6f7;font-family:Arial,Helvetica,sans-serif;color:#0c1a20">
+<div style="max-width:560px;margin:0 auto;padding:24px 16px">
+<div style="background:#ffffff;border:1px solid #e4e9eb;border-radius:12px;padding:24px">
+<p style="margin:0 0 6px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#0e5e73;font-weight:bold">${htmlEsc(haus)}</p>
+<p style="margin:0 0 16px;font-size:16px">${htmlEsc(T.hallo(vorname))}</p>
+<p style="margin:0 0 14px;font-size:15px;line-height:1.5">${htmlEsc(T.intro)}</p>
+<table style="border-collapse:collapse;width:100%;font-size:15px;margin:0 0 16px">${zeilen.map(([k, v]) =>
+  `<tr><td style="padding:7px 0;color:#5b6b72;border-bottom:1px solid #eef1f2;width:42%">${htmlEsc(k)}</td><td style="padding:7px 0;border-bottom:1px solid #eef1f2;font-weight:bold">${htmlEsc(v)}</td></tr>`).join("")}</table>
+<p style="margin:0 0 12px;font-size:15px;line-height:1.5">${htmlEsc(T.weiter)}</p>
+<p style="margin:0 0 18px;font-size:15px;line-height:1.5">${htmlEsc(T.fragen)}</p>
+<p style="margin:0;font-size:15px">${htmlEsc(T.gruss)}<br><b>${htmlEsc(haus)}</b>${webSprache ? `<br><a href="${htmlEsc(webSprache)}" style="color:#0e5e73">${htmlEsc(web.replace(/^https?:\/\//, ""))}</a>` : ""}</p>
+</div>
+<p style="margin:14px 4px 0;font-size:12px;line-height:1.5;color:#5b6b72">${htmlEsc(T.fuss(web.replace(/^https?:\/\//, "") || haus))}</p>
+</div></body></html>`;
+
+  const ok = await mailSenden(env, { an: a.email, betreff: T.betreff(haus), text, html, antwortAn: env.MAIL_ANTWORT_AN });
+  if (ok) {
+    await limitZaehlen(env, tagSchluessel);
+    await env.DB.prepare("UPDATE buchungen SET eingang_mail_am = ? WHERE id = ?").bind(new Date().toISOString(), a.id).run();
+  }
+}
+
+// Benachrichtigung an die Verwaltung (NOTIFY_TO) – bewusst ohne Name/Kontaktdaten des Gastes
+async function benachrichtigen(env, a) {
+  const an = (env.NOTIFY_TO || "").split(",").map(s => s.trim()).filter(Boolean);
+  if (!mailAktiv(env) || !an.length) return;
+  const zeitraum = `${deDatum(a.von)} – ${deDatum(a.bis)}`;
+  const n = naechte(a.von, a.bis);
+  const sprachen = { de: "Deutsch", en: "Englisch", hr: "Kroatisch", sl: "Slowenisch" };
+  const preis = a.preis_web != null ? `${a.preis_web} € (inkl. Endreinigung)` : "–";
+  const admin = env.ADMIN_URL || "";
+  const zeilen = [["Zeitraum", zeitraum], ["Nächte", n], ["Personen", a.personen], ["Preis (berechnet)", preis], ["Sprache", sprachen[a.sprache] || a.sprache]];
+  const text = `Neue Buchungsanfrage über die Website\n\n${zeilen.map(([k, v]) => (k + ":").padEnd(19) + v).join("\n")}\n\n` +
+    `Anfrage ansehen und bestätigen:\n${admin}\n\n(Name und Kontaktdaten des Gastes stehen aus Datenschutzgründen nur in der Verwaltung.)`;
+  const html = `<!doctype html><html lang="de"><body style="margin:0;background:#f4f6f7;font-family:Arial,Helvetica,sans-serif;color:#0c1a20">
+<div style="max-width:560px;margin:0 auto;padding:24px 16px"><div style="background:#fff;border:1px solid #e4e9eb;border-radius:12px;padding:24px">
+<p style="margin:0 0 14px;font-size:18px;font-weight:bold">Neue Buchungsanfrage</p>
+<table style="border-collapse:collapse;width:100%;font-size:15px;margin:0 0 20px">${zeilen.map(([k, v]) =>
+  `<tr><td style="padding:7px 0;color:#5b6b72;border-bottom:1px solid #eef1f2;width:42%">${htmlEsc(k)}</td><td style="padding:7px 0;border-bottom:1px solid #eef1f2;font-weight:bold">${htmlEsc(v)}</td></tr>`).join("")}</table>
+${admin ? `<a href="${htmlEsc(admin)}" style="display:inline-block;background:#0e5e73;color:#fff;text-decoration:none;font-weight:bold;padding:12px 20px;border-radius:9px">In der Verwaltung öffnen</a>` : ""}
+<p style="margin:18px 0 0;font-size:12px;color:#5b6b72">Name und Kontaktdaten des Gastes stehen aus Datenschutzgründen nur in der Verwaltung.</p>
+</div></div></body></html>`;
+  await mailSenden(env, { an, betreff: `Neue Anfrage: ${zeitraum} (${n} Nächte, ${a.personen} Pers.)`, text, html });
 }
 
 /* ---------------- Tägliche Bereinigung (Datenschutz) ---------------- */

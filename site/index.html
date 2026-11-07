@@ -279,13 +279,12 @@
   <p class="section-sub" data-i18n="info.sub"></p>
   <div class="know">
     <div class="card"><b data-i18n="info.checkT"></b><p data-i18n="info.checkD"></p></div>
-    <div class="card"><b data-i18n="info.pricesT"></b><ul class="price-list" id="know-prices"></ul></div>
     <div class="card"><b data-i18n="info.minT"></b><p id="know-min"></p></div>
     <div class="card"><b data-i18n="info.cleanT"></b><p id="know-clean"></p></div>
     <div class="card"><b data-i18n="info.payT"></b><p data-i18n="info.payD"></p></div>
     <div class="card"><b data-i18n="info.cancelT"></b><p data-i18n="info.cancelD"></p></div>
     <div class="card"><b data-i18n="info.taxT"></b><p data-i18n="info.taxD"></p></div>
-    <div class="card"><b data-i18n="info.campT"></b><p data-i18n-html="info.campD"></p></div>
+    <div class="card know-wide"><b data-i18n="info.campT"></b><p data-i18n-html="info.campD"></p></div>
     <div class="card"><b data-i18n="info.tripsT"></b><p data-i18n="info.tripsD"></p></div>
   </div>
 </section>
@@ -533,29 +532,15 @@
 
   function zeigeRegeln(){
     bauePersonen(P ? P.maxPersonen : 5);
-    if (!P) { set("sum-price-hint", t("sum.onRequest")); set("know-min", ""); set("know-clean", ""); $("know-prices").textContent = t("sum.onRequest"); return; }
+    // Preise erscheinen nur in der Zusammenfassung, sobald ein Zeitraum gewählt ist
+    set("sum-price-hint", t(P ? "sum.pickHint" : "sum.onRequest"));
+    if (!P) { set("know-min", ""); set("know-clean", ""); return; }
     const kuenftig = saisons.filter(s => s.jaehrlich || s.bis >= key(heute));
-    const preise = kuenftig.map(s => s.preisProNacht);
-    if (!P.nurInSaisonBuchbar || !preise.length) preise.push(P.standardPreis);
-    set("sum-price-hint", t("sum.from", { p: euro(Math.min(...preise)) }));
     const mehr = {};
     kuenftig.forEach(s => { if (s.minNaechte > P.minNaechte) mehr[I18N.saison(s.name)] = s.minNaechte; });
     const zusatz = Object.entries(mehr).map(([n, m]) => n + ": " + m).join(", ");
     set("know-min", t("info.min", { n: P.minNaechte, extra: zusatz ? " (" + zusatz + ")" : "" }));
     set("know-clean", t("info.clean", { p: euro(P.endreinigung) }));
-
-    // Preisübersicht: jährliche Saisons, übrige Zeit (Nebensaison), künftige Sonderzeiträume
-    const tagMonat = md => { const [m, d] = md.split("-").map(Number); return new Date(2024, m - 1, d).toLocaleDateString(I18N.locale, { day: "2-digit", month: "2-digit" }); };
-    const zeilen = kuenftig.filter(s => s.jaehrlich).map(s => [gross(I18N.saison(s.name)) + " (" + tagMonat(s.von) + "–" + tagMonat(s.bis) + ")", s.preisProNacht]);
-    if (!P.nurInSaisonBuchbar) zeilen.push([t("info.base"), P.standardPreis]);
-    kuenftig.filter(s => !s.jaehrlich).slice(0, 3).forEach(s => zeilen.push([gross(I18N.saison(s.name)) + " " + fmtShort(parse(s.von)) + "–" + fmtShort(parse(s.bis)), s.preisProNacht]));
-    const ul = $("know-prices");
-    ul.innerHTML = "";
-    zeilen.forEach(([name, preis]) => {
-      const li = document.createElement("li"), a = document.createElement("span"), b = document.createElement("b");
-      a.textContent = name; b.textContent = euro(preis);
-      li.append(a, b); ul.appendChild(li);
-    });
   }
 
   /* ---------- Kalender ---------- */

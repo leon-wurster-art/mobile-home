@@ -45,6 +45,20 @@ body{background:var(--muted)}
 .req-grid a,.dlg-body a{color:var(--primary)}
 .req-msg{white-space:pre-wrap;font-size:.88rem;background:var(--muted);border-radius:9px;padding:10px 12px;margin-bottom:12px;overflow-wrap:anywhere}
 .req-actions{display:flex;gap:8px;flex-wrap:wrap}
+/* Bestätigungs-Mail-Merker */
+.st + .st{margin-left:6px}
+.st-mailoffen{background:#fff1c2;color:#8a5a00}
+.st-mailok{background:var(--success-soft);color:var(--success)}
+.req-mail{border-color:#efc56a;box-shadow:0 0 0 3px #fff6da}
+.sec-head{display:flex;align-items:baseline;gap:8px;margin:0 0 10px;font-size:.95rem}
+.sec-head span{color:var(--muted-foreground);font-size:.85rem}
+.sec-head + .req-list{margin-bottom:26px}
+.req-note{font-size:.8rem;color:var(--muted-foreground);margin:-4px 0 12px}
+.req-note.ok{color:var(--success)}
+.check-warn{background:#fff8e1;border:1px solid #efc56a;border-radius:9px;padding:9px 11px;color:#6b4a00}
+.check-ok{background:var(--success-soft);border:1px solid #bfe3cf;border-radius:9px;padding:9px 11px;color:var(--success)}
+.aday.mail-offen{box-shadow:inset 0 -4px 0 #e0a100}
+.lg-mail{background:#fff;border:1px solid var(--border);box-shadow:inset 0 -4px 0 #e0a100}
 .alert{font-size:.82rem;border-radius:9px;padding:9px 12px;margin-bottom:12px}
 .alert-warn{background:var(--accent-soft);color:#7a3d18}
 .alert-err{background:var(--destructive-soft);color:var(--destructive)}
@@ -197,6 +211,7 @@ dialog::backdrop{background:rgba(12,26,32,.45)}
             <span><i class="lg lg-block"></i> gesperrt</span>
             <span><i class="lg lg-anf"></i> offene Anfrage</span>
             <span><i class="lg lg-zu"></i> außerhalb Saison</span>
+            <span><i class="lg lg-mail"></i> Bestätigungs-Mail offen</span>
           </div>
           <div class="cal-nav">
             <button type="button" id="acal-prev" aria-label="Vorheriger Monat"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
@@ -302,6 +317,8 @@ dialog::backdrop{background:rgba(12,26,32,.45)}
         <div class="field"><label for="d-tel">Telefon</label><input id="d-tel" type="tel" maxlength="50"></div>
       </div>
       <div class="field"><label for="d-msg">Nachricht des Gastes</label><textarea id="d-msg" rows="2" maxlength="2000"></textarea></div>
+      <label class="check" id="d-mail-wrap" hidden><input type="checkbox" id="d-mailgesendet">
+        <span><b>Bestätigungs-Mail an den Gast gesendet</b> <span id="d-mail-am"></span></span></label>
       <div class="field"><label for="d-notiz">Interne Notiz</label><textarea id="d-notiz" rows="2" maxlength="2000" placeholder="z. B. Anzahlung erhalten am …"></textarea></div>
       <p class="dlg-meta" id="d-meta"></p>
     </div>
@@ -452,8 +469,11 @@ dialog::backdrop{background:rgba(12,26,32,.45)}
     } catch (e) { if (!e.still) toast(e.message, null, true); }
   }
 
+  // Bestätigte Buchung mit E-Mail-Adresse, deren Bestätigungs-Mail noch nicht als gesendet markiert ist
+  const mailOffen = b => b.status === "bestaetigt" && !!b.email && !b.bestaetigung_gesendet_am && b.bis >= heute;
+
   function renderAlles(){
-    const offen = daten.filter(b => b.status === "anfrage").length;
+    const offen = daten.filter(b => b.status === "anfrage").length + daten.filter(mailOffen).length;
     $("cnt-anfragen").textContent = offen || "";
     document.title = (offen ? "(" + offen + ") " : "") + "Verwaltung · " + KONFIG.name;
     if (tab === "anfragen") renderAnfragen();
@@ -848,7 +868,7 @@ ${v.user}`,
       const d = await api("/api/admin/buchungen/" + b.id, { method: "PATCH", body: { status, geaendert_am: b.geaendert_am } });
       await laden();
       const neu = d.buchung;
-      if (status === "bestaetigt") toast("Buchung bestätigt.", neu.email ? { text: "Bestätigungs-Mail öffnen", href: mailBestaetigung(neu) } : null);
+      if (status === "bestaetigt") toast(neu.email ? "Buchung bestätigt – jetzt die Bestätigungs-Mail senden." : "Buchung bestätigt.", neu.email ? { text: "Bestätigungs-Mail öffnen", href: mailBestaetigung(neu) } : null);
       else if (status === "abgelehnt") toast("Anfrage abgelehnt.", neu.email ? { text: "Absage-Mail öffnen", href: mailAbsage(neu) } : null);
       else toast("Gespeichert.");
     } catch (e) {
@@ -864,11 +884,30 @@ ${v.user}`,
   function renderAnfragen(){
     const el = $("t-anfragen");
     const liste = daten.filter(b => b.status === "anfrage").sort((a, b) => a.von.localeCompare(b.von));
-    if (!liste.length){
-      el.innerHTML = '<div class="card empty"><b>Keine offenen Anfragen</b>Neue Anfragen von der Website erscheinen hier.</div>';
+    const todo = daten.filter(mailOffen).sort((a, b) => a.von.localeCompare(b.von));
+    if (!liste.length && !todo.length){
+      el.innerHTML = '<div class="card empty"><b>Alles erledigt</b>Keine offenen Anfragen und keine ausstehenden Bestätigungs-Mails.</div>';
       return;
     }
-    el.innerHTML = '<div class="req-list">' + liste.map(b => {
+    // 1) Bestätigt, aber Bestätigungs-Mail noch nicht gesendet
+    const todoHtml = !todo.length ? "" :
+      `<div class="sec-head"><b>Bestätigungs-Mail noch senden</b><span>${todo.length} Buchung${todo.length === 1 ? "" : "en"}</span></div><div class="req-list">` +
+      todo.map(b => `<article class="card req req-mail" data-id="${esc(b.id)}">
+        <div class="req-head">
+          <div>
+            <div class="req-dates">${esc(deLang(b.von))} → ${esc(deLang(b.bis))}</div>
+            <div class="req-meta">${esc(b.name || "–")} · ${nTxt(b.von, b.bis)} · ${esc(b.personen ?? "–")} Personen${b.sprache && SPRACHNAME[b.sprache] ? " · Sprache: " + SPRACHNAME[b.sprache] : ""}</div>
+          </div>
+          <span><span class="st st-bestaetigt">Bestätigt</span><span class="st st-mailoffen">Mail offen</span></span>
+        </div>
+        <div class="req-actions">
+          <a class="btn btn-primary btn-sm" data-act="mail-oeffnen" href="${esc(mailBestaetigung(b))}">Bestätigungs-Mail öffnen${esc(sprachHinweis(b))}</a>
+          <button class="btn btn-outline btn-sm" data-act="mail-gesendet">✓ Als gesendet markieren</button>
+          <button class="btn btn-ghost btn-sm" data-act="bearbeiten">Bearbeiten</button>
+        </div>
+      </article>`).join("") + "</div>";
+    // 2) Offene Anfragen
+    el.innerHTML = todoHtml + (!liste.length ? "" : (todo.length ? '<div class="sec-head"><b>Offene Anfragen</b><span>' + liste.length + '</span></div>' : "") + '<div class="req-list">' + liste.map(b => {
       const konf = daten.filter(x => x.id !== b.id && blockierend(x.status) && ueberlappt(x, b));
       const parallel = daten.filter(x => x.id !== b.id && x.status === "anfrage" && ueberlappt(x, b));
       let hinweise = "";
@@ -895,20 +934,44 @@ ${v.user}`,
           <div><dt>Preis (berechnet)</dt><dd>${esc(euro(b.preis_web))}</dd></div>
         </dl>
         ${b.nachricht ? `<p class="req-msg">${esc(b.nachricht)}</p>` : ""}
+        ${b.quelle === "web" ? (b.eingang_mail_am
+          ? `<p class="req-note ok">✓ Eingangsbestätigung automatisch an den Gast gesendet (${esc(deZeit(b.eingang_mail_am))})</p>`
+          : `<p class="req-note">Keine automatische Eingangsbestätigung versendet (Mailversand nicht eingerichtet oder fehlgeschlagen).</p>`) : ""}
         <div class="req-actions">
           <button class="btn btn-primary btn-sm" data-act="bestaetigen" ${konf.length ? "disabled" : ""}>Bestätigen</button>
           <button class="btn btn-outline btn-sm" data-act="ablehnen">Ablehnen</button>
           <button class="btn btn-ghost btn-sm" data-act="bearbeiten">Bearbeiten</button>
         </div>
       </article>`;
-    }).join("") + "</div>";
+    }).join("") + "</div>");
   }
+
+  async function mailAlsGesendet(b, gesendet){
+    try {
+      await api("/api/admin/buchungen/" + b.id, { method: "PATCH", body: { bestaetigung_gesendet: gesendet, geaendert_am: b.geaendert_am } });
+      await laden();
+      toast(gesendet ? "Bestätigungs-Mail als gesendet markiert." : "Markierung entfernt.");
+    } catch (e) {
+      if (e.still) return;
+      if (e.data && e.data.veraltet) await laden();
+      toast(e.message, null, true);
+    }
+  }
+
   $("t-anfragen").addEventListener("click", e => {
     const btn = e.target.closest("[data-act]"); if (!btn) return;
     const b = daten.find(x => x.id === btn.closest("[data-id]").dataset.id); if (!b) return;
     if (btn.dataset.act === "bestaetigen") { btn.disabled = true; setzeStatus(b, "bestaetigt"); }
     if (btn.dataset.act === "ablehnen") { btn.disabled = true; setzeStatus(b, "abgelehnt"); }
     if (btn.dataset.act === "bearbeiten") oeffneDialog(b);
+    if (btn.dataset.act === "mail-oeffnen") {
+      // Mail-Programm öffnet sich; danach den „gesendet“-Knopf hervorheben
+      const mark = btn.parentElement.querySelector('[data-act="mail-gesendet"]');
+      btn.classList.replace("btn-primary", "btn-outline");
+      mark.classList.replace("btn-outline", "btn-primary");
+      mark.textContent = "✓ Gesendet? Jetzt als gesendet markieren";
+    }
+    if (btn.dataset.act === "mail-gesendet") { btn.disabled = true; mailAlsGesendet(b, true); }
   });
 
   /* ---------- Tab: Kalender ---------- */
@@ -947,7 +1010,8 @@ ${v.user}`,
           if (addDays(ds, 1) === top.bis) cls.push("n-end");
           if (blockierend(top.status) && es.some(x => x.status === "anfrage")) cls.push("mit-anfrage");
         }
-        const titel = es.map(x => STATUS[x.status].t + (x.name ? ": " + x.name : (x.notiz ? ": " + x.notiz : "")) + " (" + deKurz(x.von) + " – " + deKurz(x.bis) + ")").join("\n");
+        if (es.some(mailOffen)) cls.push("mail-offen");
+        const titel = es.map(x => STATUS[x.status].t + (x.name ? ": " + x.name : (x.notiz ? ": " + x.notiz : "")) + " (" + deKurz(x.von) + " – " + deKurz(x.bis) + ")" + (mailOffen(x) ? " – Bestätigungs-Mail offen" : "")).join("\n");
         const label = deLang(ds) + (titel ? " – " + titel.replace(/\n/g, "; ") : " – frei");
         html += `<button type="button" class="${cls.join(" ")}" data-ds="${ds}" title="${esc(titel || "frei")}" aria-label="${esc(label)}">${t}</button>`;
       }
@@ -997,7 +1061,7 @@ ${v.user}`,
       liste.map(b => `<tr tabindex="0" data-id="${esc(b.id)}">
         <td class="nowrap">${esc(deKurz(b.von))} – ${esc(deKurz(b.bis))}</td>
         <td>${naechte(b.von, b.bis)}</td>
-        <td>${statusBadge(b.status)}</td>
+        <td class="nowrap">${statusBadge(b.status)}${b.status === "bestaetigt" && b.email ? (b.bestaetigung_gesendet_am ? '<span class="st st-mailok" title="Bestätigungs-Mail gesendet">Mail ✓</span>' : '<span class="st st-mailoffen" title="Bestätigungs-Mail noch nicht gesendet">Mail offen</span>') : ""}</td>
         <td>${esc(b.name || "")}${b.name && b.notiz ? "<br>" : ""}${b.notiz ? `<span class="muted">${esc(b.notiz)}</span>` : ""}${!b.name && !b.notiz ? '<span class="muted">–</span>' : ""}</td>
         <td>${esc(b.personen ?? "–")}</td>
         <td class="nowrap muted">${esc(deZeit(b.geaendert_am))}${b.geaendert_von ? "<br>" + esc(b.geaendert_von) : (b.quelle === "web" ? "<br>Website" : "")}</td>
@@ -1026,11 +1090,25 @@ ${v.user}`,
     const ml = $("dlg-mail"); ml.innerHTML = "";
     (b ? mailLinks(b) : []).forEach(l => { const a = document.createElement("a"); a.className = "btn btn-outline btn-sm"; a.href = l.href; a.textContent = l.text; ml.appendChild(a); });
     ml.hidden = !ml.children.length;
+    $("d-mailgesendet").checked = !!(b && b.bestaetigung_gesendet_am);
+    $("d-mail-am").textContent = b && b.bestaetigung_gesendet_am ? "(am " + deZeit(b.bestaetigung_gesendet_am) + ")" : "";
     pruefeDialog();
     $("dlg").showModal();
   }
 
+  // Merker „Bestätigungs-Mail gesendet“: nur bei bestätigten Buchungen mit E-Mail; gelb, solange nicht gesendet
+  function mailMerker(){
+    const wrap = $("d-mail-wrap");
+    wrap.hidden = !($("d-status").value === "bestaetigt" && $("d-email").value.trim());
+    const ok = $("d-mailgesendet").checked;
+    wrap.classList.toggle("check-warn", !ok);
+    wrap.classList.toggle("check-ok", ok);
+  }
+  $("d-mailgesendet").addEventListener("change", mailMerker);
+  ["d-status", "d-email"].forEach(id => $(id).addEventListener("input", mailMerker));
+
   function pruefeDialog(){
+    mailMerker();
     const von = $("d-von").value, bis = $("d-bis").value, st = $("d-status").value;
     const info = $("d-info");
     if (!von || !bis) { info.textContent = ""; return; }
@@ -1052,6 +1130,7 @@ ${v.user}`,
     Object.entries(F).forEach(([k, id]) => { const v = $(id).value.trim(); body[k] = v === "" ? null : (k === "personen" ? Number(v) : v); });
     if (!body.von || !body.bis) { err.textContent = "Bitte Anreise und Abreise angeben."; err.hidden = false; return; }
     if (aktuell) body.geaendert_am = aktuell.geaendert_am;
+    if (!$("d-mail-wrap").hidden) body.bestaetigung_gesendet = $("d-mailgesendet").checked;
     const btn = $("d-save"); btn.disabled = true;
     try {
       const d = aktuell
@@ -1061,7 +1140,7 @@ ${v.user}`,
       $("dlg").close();
       await laden();
       const neu = d.buchung;
-      if (neu.status === "bestaetigt" && vorher !== "bestaetigt" && neu.email) toast("Gespeichert und bestätigt.", { text: "Bestätigungs-Mail öffnen", href: mailBestaetigung(neu) });
+      if (neu.status === "bestaetigt" && vorher !== "bestaetigt" && neu.email && !neu.bestaetigung_gesendet_am) toast("Gespeichert und bestätigt – jetzt die Bestätigungs-Mail senden.", { text: "Bestätigungs-Mail öffnen", href: mailBestaetigung(neu) });
       else if (neu.status === "abgelehnt" && vorher !== "abgelehnt" && neu.email) toast("Gespeichert.", { text: "Absage-Mail öffnen", href: mailAbsage(neu) });
       else toast("Gespeichert.");
     } catch (ex) {

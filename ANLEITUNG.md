@@ -58,8 +58,25 @@ npm run benutzer:remote -- anna
 3. Im Repo unter **Settings → Pages → Source** „GitHub Actions" wählen. Jeder Push auf `main` veröffentlicht dann `site/`.
 4. Optional automatisches Ausspielen der API: In GitHub unter **Settings → Secrets → Actions** die Secrets `CLOUDFLARE_API_TOKEN` und `CLOUDFLARE_ACCOUNT_ID` anlegen.
 
-### 4. Optional
-- **Mail bei neuer Anfrage:** Konto bei resend.com anlegen, dann `npx wrangler secret put RESEND_API_KEY`, `NOTIFY_TO` (Empfänger, kommagetrennt) und `NOTIFY_FROM` setzen. Die Mail enthält nur Zeitraum und Personenzahl, keine Gastdaten.
+### 4. Automatische E-Mails (Eingangsbestätigung an Gäste + Benachrichtigung an dich)
+Bei jeder neuen Anfrage gehen gleichzeitig zwei Mails raus:
+- **an den Gast:** Eingangsbestätigung in seiner Sprache (DE/EN/HR/SL). Absender ist `anfrage@mobile-home-privlaka.com`; Antworten landen bei `MAIL_ANTWORT_AN`.
+- **an dich (`NOTIFY_TO`):** Zeitraum, Personen, Preis, Sprache und ein Knopf zur Verwaltung, bewusst ohne Name und Kontaktdaten des Gastes.
+
+Einrichtung mit **Brevo** (EU-Anbieter, kostenlos bis 300 Mails/Tag):
+1. Konto auf brevo.com anlegen.
+2. In Brevo **Senders, Domains & Dedicated IPs → Domains → Add a domain**: `mobile-home-privlaka.com`. Brevo zeigt DNS-Einträge (Brevo-Code, DKIM, DMARC). Diese in Cloudflare unter **DNS → Records** eintragen (Proxy: „DNS only"), dann in Brevo **Authenticate** klicken.
+3. In Brevo **SMTP & API → API Keys → Generate a new API key**. Den Schlüssel direkt in Keeper ablegen.
+4. Im Ordner `api/`:
+   ```bash
+   npx wrangler secret put BREVO_API_KEY      # Schlüssel einfügen (aus Keeper)
+   npx wrangler secret put NOTIFY_TO          # deine E-Mail-Adresse für Benachrichtigungen
+   ```
+Fertig, ohne neues Ausspielen. Ohne Schlüssel funktioniert alles weiter, nur ohne automatische Mails. Alternativ geht **Resend** mit `RESEND_API_KEY`. Dann den Abschnitt in `datenschutz.html` anpassen.
+
+Schutz gegen Missbrauch: höchstens 5 Anfragen pro Stunde je Anschluss, höchstens 40 automatische Gäste-Mails pro Tag. Im Gruß wird nur der Vorname verwendet, nichts, was nach Link aussieht.
+
+### 5. Optional
 - **iCal-Export schützen:** Mit `npx wrangler secret put ICS_TOKEN` gesetzt, ist der Link nur noch mit `?token=…` abrufbar.
 
 ## Im Alltag
@@ -67,6 +84,7 @@ npm run benutzer:remote -- anna
 | Was | Wo |
 |---|---|
 | Anfragen bestätigen / ablehnen | Verwaltung → Tab „Anfragen" |
+| Bestätigungs-Mail an Gast nicht vergessen | Nach dem Bestätigen erscheint die Buchung oben im Tab „Anfragen" **gelb** unter „Bestätigungs-Mail noch senden". Dort Mail öffnen, senden, dann „✓ Als gesendet markieren". Die Zahl am Tab zählt offene Anfragen **und** offene Mails. In der Liste steht „Mail offen" oder „Mail ✓", im Kalender ist der Zeitraum unten gelb markiert. |
 | Eigennutzung / Wartung sperren | Verwaltung → Kalender → freien Tag anklicken (oder „+ Neuer Eintrag") |
 | Buchung ändern, verschieben, stornieren | Verwaltung → Eintrag anklicken |
 | Preise, Saisons, Mindestnächte, Endreinigung, max. Personen | Verwaltung → Tab „Preise & Regeln“ |
