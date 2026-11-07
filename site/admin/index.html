@@ -186,6 +186,7 @@ dialog::backdrop{background:rgba(12,26,32,.45)}
 
   <!-- App -->
   <section id="v-app" hidden>
+    <div class="alert" id="mail-hinweis" hidden></div>
     <div class="adm-head">
       <div class="tabs" role="tablist" aria-label="Ansicht">
         <button role="tab" data-tab="anfragen" aria-selected="true">Anfragen <span class="count" id="cnt-anfragen"></span></button>
@@ -465,8 +466,25 @@ dialog::backdrop{background:rgba(12,26,32,.45)}
     try {
       const d = await api("/api/admin/buchungen");
       daten = d.buchungen || [];
+      mailHinweis(d.mail);
       renderAlles();
     } catch (e) { if (!e.still) toast(e.message, null, true); }
+  }
+
+  // Hinweis, wenn automatische Mails nicht eingerichtet oder gestört sind
+  function mailHinweis(m){
+    const el = $("mail-hinweis");
+    if (!m) { el.hidden = true; return; }
+    if (!m.aktiv) {
+      el.className = "alert alert-warn";
+      el.textContent = "Automatische E-Mails sind noch nicht eingerichtet: Gäste bekommen keine Eingangsbestätigung, du keine Benachrichtigung bei neuen Anfragen. Anleitung: ANLEITUNG.md, Abschnitt 4 (Brevo).";
+      el.hidden = false;
+    } else if (m.ok === false) {
+      el.className = "alert alert-err";
+      el.textContent = "Automatischer Mailversand gestört" + (m.stand ? " (zuletzt geprüft " + deZeit(m.stand) + ")" : "") + ": " + (m.fehler || "unbekannter Fehler") +
+        ". Häufige Ursachen: " + (m.dienst || "Mail-Dienst") + "-API-Schlüssel abgelaufen oder gelöscht, IP-Sperre bei Brevo aktiv. Neuen Schlüssel erzeugen und mit „npx wrangler secret put BREVO_API_KEY“ eintragen.";
+      el.hidden = false;
+    } else el.hidden = true;
   }
 
   // Bestätigte Buchung mit E-Mail-Adresse, deren Bestätigungs-Mail noch nicht als gesendet markiert ist

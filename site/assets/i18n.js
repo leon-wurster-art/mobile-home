@@ -136,7 +136,6 @@
       "cal.priceNote": "Preis pro Nacht",
       "gal.cat.strand": "Strand & Umgebung",
       "gal.strand-soline": "Sonnenuntergang am Strand Soline, Privlaka",
-      "gal.strand-sabunike": "Sandstrand Sabunike bei Privlaka",
       "gal.strand-abendrot": "Abendrot am Sandstrand von Privlaka",
 
       "season.Hauptsaison": "Hauptsaison", "season.Nebensaison": "Nebensaison",
@@ -263,7 +262,6 @@
       "cal.priceNote": "price per night",
       "gal.cat.strand": "Beach & surroundings",
       "gal.strand-soline": "Sunset at Soline beach, Privlaka",
-      "gal.strand-sabunike": "Sabunike sandy beach near Privlaka",
       "gal.strand-abendrot": "Evening glow at Privlaka's sandy beach",
 
       "season.Hauptsaison": "high season", "season.Nebensaison": "low season",
@@ -390,7 +388,6 @@
       "cal.priceNote": "cijena po noći",
       "gal.cat.strand": "Plaža i okolica",
       "gal.strand-soline": "Zalazak sunca na plaži Soline, Privlaka",
-      "gal.strand-sabunike": "Pješčana plaža Sabunike kod Privlake",
       "gal.strand-abendrot": "Večernje rumenilo na pješčanoj plaži u Privlaci",
 
       "season.Hauptsaison": "glavna sezona", "season.Nebensaison": "niska sezona",
@@ -517,7 +514,6 @@
       "cal.priceNote": "cena na noč",
       "gal.cat.strand": "Plaža in okolica",
       "gal.strand-soline": "Sončni zahod na plaži Soline, Privlaka",
-      "gal.strand-sabunike": "Peščena plaža Sabunike pri Privlaki",
       "gal.strand-abendrot": "Večerna zarja na peščeni plaži v Privlaki",
 
       "season.Hauptsaison": "glavna sezona", "season.Nebensaison": "nizka sezona",

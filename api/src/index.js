@@ -39,7 +39,7 @@ export default {
     return res;
   },
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(aufraeumen(env));
+    ctx.waitUntil(Promise.allSettled([aufraeumen(env), mailPruefen(env)]));
   },
 };
 
@@ -213,7 +213,7 @@ async function liste(env, url) {
   if (ab) { sql += " AND bis >= ?"; args.push(V.datum(ab, "ab")); }
   sql += " ORDER BY von LIMIT 2000";
   const { results } = await env.DB.prepare(sql).bind(...args).all();
-  return json({ buchungen: results, heute: heute(env) });
+  return json({ buchungen: results, heute: heute(env), mail: await mailStatus(env) });
 }
 
 async function anlegen(req, env, user) {
@@ -427,8 +427,41 @@ async function mailSenden(env, { an, betreff, text, html, antwortAn }) {
       }),
     });
   }
-  if (!r.ok) { console.error("Mailversand", r.status, await r.text()); return false; }
+  if (!r.ok) {
+    const fehler = `${r.status} ${(await r.text()).slice(0, 200)}`;
+    console.error("Mailversand", fehler);
+    await mailStatusSetzen(env, false, fehler);
+    return false;
+  }
+  await mailStatusSetzen(env, true);
   return true;
+}
+
+// Zustand des Mailversands (für den Hinweis in der Verwaltung)
+async function mailStatusSetzen(env, ok, fehler = null) {
+  try {
+    await env.DB.prepare(
+      `INSERT INTO einstellungen (schluessel, wert, geaendert_am, geaendert_von) VALUES ('mailstatus', ?1, ?2, 'System')
+       ON CONFLICT(schluessel) DO UPDATE SET wert = excluded.wert, geaendert_am = excluded.geaendert_am`
+    ).bind(JSON.stringify({ ok, fehler }), new Date().toISOString()).run();
+  } catch (e) { console.error("Mailstatus", e); }
+}
+async function mailStatus(env) {
+  const r = await env.DB.prepare("SELECT wert, geaendert_am FROM einstellungen WHERE schluessel = 'mailstatus'").first();
+  return { aktiv: mailAktiv(env), dienst: env.BREVO_API_KEY ? "Brevo" : env.RESEND_API_KEY ? "Resend" : null,
+    ...(r ? JSON.parse(r.wert) : {}), stand: r ? r.geaendert_am : null };
+}
+// Tägliche Prüfung (Cron): hält den Brevo-Schlüssel aktiv – Brevo-Schlüssel verfallen nach 90 Tagen ohne Nutzung –
+// und meldet einen ungültigen oder abgelaufenen Schlüssel in der Verwaltung
+async function mailPruefen(env) {
+  if (!mailAktiv(env) || !env.BREVO_API_KEY) return;
+  try {
+    const basis = env.BREVO_API_URL ? env.BREVO_API_URL.replace(/\/[^/]*$/, "") : "https://api.brevo.com/v3";
+    const r = await fetch(`${basis}/smtp/statistics/aggregatedReport?days=1`, { headers: { "api-key": env.BREVO_API_KEY, Accept: "application/json" } });
+    await mailStatusSetzen(env, r.ok, r.ok ? null : `${r.status} ${(await r.text()).slice(0, 200)}`);
+  } catch (e) {
+    await mailStatusSetzen(env, false, String(e).slice(0, 200));
+  }
 }
 
 const htmlEsc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
