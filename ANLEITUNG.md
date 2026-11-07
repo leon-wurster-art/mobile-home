@@ -93,7 +93,10 @@ Die Absenderadresse soll wirklich Mails empfangen können, z. B. falls Brevo ein
 
 **Schritt 5 – API-Schlüssel**
 1. Profil oben rechts → **SMTP & API** → Reiter **API Keys** → **Generate a new API key**, Name z. B. `mobile-home-api`.
-2. Den Schlüssel **sofort in Keeper** speichern. Er wird nur einmal angezeigt. Nicht in Dateien, Chats oder den Browser kopieren.
+2. **Ablauf:** die längste angebotene Dauer wählen. Im Keeper-Eintrag eine Erinnerung zum Erneuern vor dem Ablaufdatum setzen.
+3. **Zugriff: „Eingeschränkt"** und bei **Berechtigung** nur **Transaktions-E-Mails → „Alle"**. Alle anderen Zeilen auf **„Keine"**, auch „E-Mail-Kampagne".
+4. Den Schlüssel **sofort in Keeper** speichern. Er wird nur einmal angezeigt. Nicht in Dateien, Chats oder den Browser kopieren.
+5. Brevo-Schlüssel verfallen auch **nach 90 Tagen ohne Nutzung**. Die API nutzt ihn deshalb einmal täglich, das hält ihn aktiv. Ist der Schlüssel trotzdem abgelaufen oder ungültig, zeigt die Verwaltung oben einen **roten Hinweis**. Dann einen neuen Schlüssel erzeugen und wie in Schritt 7 eintragen.
 
 **Schritt 6 – IP-Sperre bei Brevo ausschalten (wichtig)**
 Brevo blockiert API-Aufrufe von unbekannten IP-Adressen. Cloudflare-Worker haben wechselnde IPs.
