@@ -12,12 +12,12 @@ const KONFIG = {
 
   /* ---------- Stammdaten ---------- */
   name: "Mobile Home Adria",
-  untertitel: "Dein Zuhause an der Küste Istriens",
-  ort: "Zelena Laguna, Poreč · Kroatien",
+  untertitel: "Dein Zuhause an der dalmatinischen Küste",
+  ort: "Dalmacija Camp, Privlaka · Kroatien",
 
   // Kontakt (Footer und Notfall-Weg per E-Mail, falls die API nicht erreichbar ist)
-  kontaktEmail: "deine-email@beispiel.de",
-  telefon: "+49 170 0000000",
+  kontaktEmail: "jadraleno@web.de",
+  telefon: "+49 176 66672965",
 
   /* ---------- API (Anfragen, Belegung, Preise) ---------- */
   // Beim lokalen Testen (http://localhost:8080) wird automatisch die lokale API genutzt.
@@ -25,9 +25,9 @@ const KONFIG = {
 
   // Koordinaten für die Karte (bei Google Maps: Rechtsklick auf den Ort → Koordinaten kopieren)
   karte: {
-    lat: 45.1994,
-    lng: 13.5891,
+    lat: 44.25679,
+    lng: 15.12565,
     zoom: 14,
-    markerText: "Mobile Home Adria<br>Zelena Laguna, Poreč"
+    markerText: "Mobile Home Adria<br>Dalmacija Camp, Privlaka"
   },
 };

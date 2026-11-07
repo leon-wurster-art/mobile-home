@@ -99,9 +99,9 @@ npx http-server -p 8080 -c-1        # Website auf http://localhost:8080, Verwalt
 Unter `localhost` nutzt die Website automatisch die lokale API.
 
 ## Vor dem Livegang
-- [ ] `impressum.html` und `datenschutz.html` ausfüllen (gelb markierte Stellen)
-- [ ] E-Mail und Telefon in `einstellungen.js`
+- [x] `impressum.html` und `datenschutz.html` ausfüllen
+- [x] E-Mail und Telefon in `einstellungen.js`
 - [ ] Saisons/Preise ab 15.06.2027 in der Verwaltung ergänzen
 - [ ] Fotos in `site/images/`
-- [ ] `og:image`-Adresse in `site/index.html` auf die echte Domain setzen
-- [ ] Bei Cloudflare den Auftragsverarbeitungsvertrag (DPA) prüfen bzw. akzeptieren
+- [x] `og:image`-Adresse in `site/index.html` auf die echte Domain setzen
+- [ ] Cloudflare-DPA zur Ablage herunterladen: https://www.cloudflare.com/cloudflare-customer-dpa/
