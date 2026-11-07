@@ -26,22 +26,123 @@ const enc = new TextEncoder();
 
 export default {
   async fetch(request, env, ctx) {
-    const cors = corsHeaders(request, env);
-    if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
-    let res;
+    const url = new URL(request.url);
+    const istApi = url.pathname === "/api" || url.pathname.startsWith("/api/");
+
+    // www.… → Domain ohne www;  …workers.dev → eigene Domain (außer API, für ältere Aufrufe)
+    if (url.hostname.startsWith("www.")) {
+      url.hostname = url.hostname.slice(4);
+      return Response.redirect(url.toString(), 301);
+    }
+    if (!istApi && env.ASSETS && env.WEBSITE_URL && url.hostname.endsWith(".workers.dev"))
+      return Response.redirect(env.WEBSITE_URL.replace(/\/+$/, "") + url.pathname + url.search, 301);
+
+    if (!istApi && env.ASSETS) return websiteAntwort(request, env, url);
+    return apiAntwort(request, env, ctx, url);
+  },
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(Promise.allSettled([aufraeumen(env), mailPruefen(env)]));
+  },
+};
+
+/* ---------------- Sicherheits-Header ---------------- */
+// Gilt für alle Antworten (Website und API)
+function grundHeader(h, url) {
+  if (url.protocol === "https:") h.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  h.set("X-Content-Type-Options", "nosniff");
+  h.set("X-Frame-Options", "DENY");
+  h.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  h.set("Permissions-Policy", "accelerometer=(), autoplay=(), camera=(), display-capture=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), browsing-topics=()");
+  h.set("Cross-Origin-Opener-Policy", "same-origin");
+}
+
+// Content-Security-Policy der Website: Skripte nur von hier oder mit Einmal-Schlüssel (Nonce),
+// Kartenkacheln nur von OpenStreetMap, keine Einbettung in fremde Seiten
+const websiteCsp = (nonce, url) => [
+  "default-src 'self'",
+  `script-src 'self' 'nonce-${nonce}'`,
+  "style-src 'self' 'unsafe-inline'",           // Inline-Stile (Leaflet, dynamische Elemente)
+  "img-src 'self' data: https://tile.openstreetmap.org",
+  "font-src 'self'",
+  "connect-src 'self'",
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "object-src 'none'",
+  "manifest-src 'self'",
+  ...(url.protocol === "https:" ? ["upgrade-insecure-requests"] : []),
+].join("; ");
+
+/* ---------------- Website (statische Dateien aus site/) ---------------- */
+async function websiteAntwort(request, env, url) {
+  if (request.method !== "GET" && request.method !== "HEAD")
+    return new Response("Methode nicht erlaubt", { status: 405, headers: { Allow: "GET, HEAD" } });
+
+  // Seiten (HTML) immer frisch ausliefern: jede Antwort hat eine neue Nonce, daher keine Revalidierung (304)
+  const istSeite = !/\.[a-z0-9]+$/i.test(url.pathname) || url.pathname.endsWith(".html");
+  let anfrage = request;
+  if (istSeite) {
+    const h = new Headers(request.headers);
+    h.delete("If-None-Match"); h.delete("If-Modified-Since");
+    anfrage = new Request(request, { headers: h });
+  }
+  const original = await env.ASSETS.fetch(anfrage);
+  const typ = original.headers.get("Content-Type") || "";
+  const html = typ.includes("text/html");
+  const nonce = b64url(crypto.getRandomValues(new Uint8Array(16)));
+
+  const h = new Headers(original.headers);
+  grundHeader(h, url);
+  h.set("Content-Security-Policy", websiteCsp(nonce, url));
+  h.set("Cross-Origin-Resource-Policy", url.pathname.startsWith("/images/") ? "cross-origin" : "same-origin");   // Vorschaubild beim Teilen
+  if (html) {
+    h.set("Cache-Control", "no-cache");
+    h.delete("ETag"); h.delete("Last-Modified");
+  } else if (url.searchParams.has("v")) {
+    h.set("Cache-Control", "public, max-age=31536000, immutable");   // CSS/JS mit Versionskennung
+  } else if (/^\/(images|assets)\//.test(url.pathname)) {
+    h.set("Cache-Control", "public, max-age=604800");                // Bilder, Schriften, Leaflet: 7 Tage
+  } else {
+    h.set("Cache-Control", "no-cache");                              // z. B. einstellungen.js ohne Version
+  }
+  if (url.pathname.startsWith("/admin")) { h.set("X-Robots-Tag", "noindex, nofollow"); h.set("Cache-Control", "no-store"); }
+
+  const res = new Response(original.body, { status: original.status, statusText: original.statusText, headers: h });
+  if (!html) return res;
+
+  // Nonce an alle <script> hängen, Versionskennung (__VERSION__) für CSS/JS einsetzen
+  const version = env.VERSION || "dev";
+  return new HTMLRewriter()
+    .on("script", { element(e) {
+      e.setAttribute("nonce", nonce);
+      const src = e.getAttribute("src");
+      if (src && src.includes("__VERSION__")) e.setAttribute("src", src.replace("__VERSION__", version));
+    } })
+    .on("link[href*='__VERSION__']", { element(e) { e.setAttribute("href", e.getAttribute("href").replace("__VERSION__", version)); } })
+    .transform(res);
+}
+
+/* ---------------- API ---------------- */
+async function apiAntwort(request, env, ctx, url) {
+  const cors = corsHeaders(request, env);
+  let res;
+  if (request.method === "OPTIONS") res = new Response(null, { status: 204 });
+  else {
     try {
       res = await route(request, env, ctx);
     } catch (e) {
       if (e instanceof HttpError) res = json({ fehler: e.message, ...e.extra }, e.status);
       else { console.error(e); res = json({ fehler: "Interner Fehler" }, 500); }
     }
-    for (const [k, v] of Object.entries(cors)) res.headers.set(k, v);
-    return res;
-  },
-  async scheduled(event, env, ctx) {
-    ctx.waitUntil(Promise.allSettled([aufraeumen(env), mailPruefen(env)]));
-  },
-};
+  }
+  for (const [k, v] of Object.entries(cors)) res.headers.set(k, v);
+  grundHeader(res.headers, url);
+  res.headers.set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'");
+  res.headers.set("Cross-Origin-Resource-Policy", "same-site");
+  // Verwaltungsdaten und Anmeldung niemals zwischenspeichern
+  if (url.pathname.startsWith("/api/admin/") || url.pathname === "/api/login") res.headers.set("Cache-Control", "no-store");
+  return res;
+}
 
 /* ---------------- Routing ---------------- */
 async function route(req, env, ctx) {
@@ -49,9 +150,9 @@ async function route(req, env, ctx) {
   const p = url.pathname.replace(/\/+$/, "") || "/";
   const m = req.method;
 
-  // Schreibende Aufrufe nur von erlaubten Seiten (Browser senden immer Origin)
+  // Schreibende Aufrufe nur von derselben Adresse oder erlaubten Seiten (Browser senden immer Origin)
   const origin = req.headers.get("Origin");
-  if (m !== "GET" && origin && !erlaubteOrigins(env).includes(origin)) throw new HttpError(403, "Herkunft nicht erlaubt");
+  if (m !== "GET" && origin && origin !== url.origin && !erlaubteOrigins(env).includes(origin)) throw new HttpError(403, "Herkunft nicht erlaubt");
 
   if (p === "/" || p === "/api") return json({ ok: true, dienst: "mobile-home-api" });
   if (p === "/api/belegung" && m === "GET") return belegung(env);
@@ -449,6 +550,7 @@ async function mailStatusSetzen(env, ok, fehler = null) {
 async function mailStatus(env) {
   const r = await env.DB.prepare("SELECT wert, geaendert_am FROM einstellungen WHERE schluessel = 'mailstatus'").first();
   return { aktiv: mailAktiv(env), dienst: env.BREVO_API_KEY ? "Brevo" : env.RESEND_API_KEY ? "Resend" : null,
+    benachrichtigung: !!(env.NOTIFY_TO || "").trim(),
     ...(r ? JSON.parse(r.wert) : {}), stand: r ? r.geaendert_am : null };
 }
 // Tägliche Prüfung (Cron): hält den Brevo-Schlüssel aktiv – Brevo-Schlüssel verfallen nach 90 Tagen ohne Nutzung –

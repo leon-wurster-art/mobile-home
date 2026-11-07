@@ -20,8 +20,9 @@ const KONFIG = {
   telefon: "+49 176 66672965",
 
   /* ---------- API (Anfragen, Belegung, Preise) ---------- */
-  // Beim lokalen Testen (http://localhost:8080) wird automatisch die lokale API genutzt.
-  apiUrl: location.hostname === "localhost" ? "http://localhost:8787" : "https://mobile-home-api.leon-wurster.workers.dev",
+  // Website und API laufen unter derselben Adresse (Cloudflare). Nur beim Testen mit einem
+  // separaten Webserver auf Port 8080 wird die lokale API auf Port 8787 genutzt.
+  apiUrl: location.port === "8080" ? "http://localhost:8787" : location.origin,
 
   // Koordinaten für die Karte (bei Google Maps: Rechtsklick auf den Ort → Koordinaten kopieren)
   karte: {

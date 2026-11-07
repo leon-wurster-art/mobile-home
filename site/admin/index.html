@@ -484,6 +484,10 @@ dialog::backdrop{background:rgba(12,26,32,.45)}
       el.textContent = "Automatischer Mailversand gestört" + (m.stand ? " (zuletzt geprüft " + deZeit(m.stand) + ")" : "") + ": " + (m.fehler || "unbekannter Fehler") +
         ". Häufige Ursachen: " + (m.dienst || "Mail-Dienst") + "-API-Schlüssel abgelaufen oder gelöscht, IP-Sperre bei Brevo aktiv. Neuen Schlüssel erzeugen und mit „npx wrangler secret put BREVO_API_KEY“ eintragen.";
       el.hidden = false;
+    } else if (!m.benachrichtigung) {
+      el.className = "alert alert-warn";
+      el.textContent = "Eingangsbestätigungen an Gäste laufen, aber die Benachrichtigung an dich bei neuen Anfragen ist nicht eingerichtet (Empfängeradresse fehlt). Im Ordner api/ ausführen: npx wrangler secret put NOTIFY_TO";
+      el.hidden = false;
     } else el.hidden = true;
   }
 

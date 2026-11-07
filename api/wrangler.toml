@@ -1,7 +1,21 @@
-# Cloudflare Worker: API für Mobile Home (Belegung, Anfragen, Verwaltung)
+# Cloudflare Worker: Website (Ordner site/) + API für Mobile Home (Belegung, Anfragen, Verwaltung)
+# Ausspielen: npm run deploy   (setzt die Versionskennung für CSS/JS automatisch)
 name = "mobile-home-api"
 main = "src/index.js"
 compatibility_date = "2026-09-01"
+workers_dev = true   # alte API-Adresse …workers.dev bleibt erreichbar (Website darauf leitet zur Domain weiter)
+
+# Eigene Domain: Cloudflare legt DNS-Einträge und HTTPS-Zertifikat selbst an
+routes = [
+  { pattern = "mobile-home-privlaka.com", custom_domain = true },
+  { pattern = "www.mobile-home-privlaka.com", custom_domain = true },
+]
+
+# Website-Dateien; der Worker läuft vor jeder Datei, um Security-Header zu setzen
+[assets]
+directory = "../site"
+binding = "ASSETS"
+run_worker_first = true
 
 [[d1_databases]]
 binding = "DB"
@@ -16,7 +30,8 @@ crons = ["0 3 * * *"]
 
 [vars]
 # Von welchen Seiten darf die API aufgerufen werden? (kommagetrennt, ohne Pfad)
-ALLOWED_ORIGINS = "https://mobile-home-privlaka.com,https://www.mobile-home-privlaka.com,https://leon-wurster-art.github.io,http://localhost:8080"
+ALLOWED_ORIGINS = "https://mobile-home-privlaka.com,https://www.mobile-home-privlaka.com,http://localhost:8787,http://localhost:8080"
+VERSION = "dev"   # wird beim Ausspielen durch die Commit-Kennung ersetzt
 # Link zur Verwaltungsseite (für Benachrichtigungs-Mails)
 ADMIN_URL = "https://mobile-home-privlaka.com/admin/"
 ZEITZONE = "Europe/Zagreb"
