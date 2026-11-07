@@ -29,6 +29,11 @@ export default {
     const url = new URL(request.url);
     const istApi = url.pathname === "/api" || url.pathname.startsWith("/api/");
 
+    // http → https (außer beim lokalen Testen)
+    if (url.protocol === "http:" && url.hostname !== "localhost" && url.hostname !== "127.0.0.1") {
+      url.protocol = "https:";
+      return Response.redirect(url.toString(), 301);
+    }
     // www.… → Domain ohne www;  …workers.dev → eigene Domain (außer API, für ältere Aufrufe)
     if (url.hostname.startsWith("www.")) {
       url.hostname = url.hostname.slice(4);
