@@ -114,6 +114,7 @@ async function neueAnfrage(req, env, ctx) {
     personen: V.int(d.personen, "Personen", 1, p.maxPersonen, true),
     nachricht: V.text(d.nachricht, "Nachricht", 2000),
     preis_web: preis,                            // serverseitig berechnet, nicht vom Browser übernommen
+    sprache: ["de", "en", "hr", "sl"].includes(d.sprache) ? d.sprache : "de",
   };
 
   if ((await konflikte(env, von, bis)).length)
@@ -122,9 +123,9 @@ async function neueAnfrage(req, env, ctx) {
   await limitZaehlen(env, schluessel);
   const jetzt = new Date().toISOString();
   await env.DB.prepare(
-    `INSERT INTO buchungen (id,status,von,bis,name,email,telefon,personen,nachricht,preis_web,quelle,erstellt_am,geaendert_am)
-     VALUES (?,'anfrage',?,?,?,?,?,?,?,?,'web',?,?)`
-  ).bind(crypto.randomUUID(), von, bis, b.name, b.email, b.telefon, b.personen, b.nachricht, b.preis_web, jetzt, jetzt).run();
+    `INSERT INTO buchungen (id,status,von,bis,name,email,telefon,personen,nachricht,preis_web,sprache,quelle,erstellt_am,geaendert_am)
+     VALUES (?,'anfrage',?,?,?,?,?,?,?,?,?,'web',?,?)`
+  ).bind(crypto.randomUUID(), von, bis, b.name, b.email, b.telefon, b.personen, b.nachricht, b.preis_web, b.sprache, jetzt, jetzt).run();
 
   ctx.waitUntil(benachrichtigen(env, { von, bis, personen: b.personen }).catch(e => console.error("Benachrichtigung:", e)));
   return json({ ok: true }, 201);

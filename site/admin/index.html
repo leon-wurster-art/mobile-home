@@ -627,19 +627,32 @@ dialog::backdrop{background:rgba(12,26,32,.45)}
   const vorname = b => (b.name || "").trim().split(/\s+/)[0] || "";
   const mailHref = (b, betreff, text) => "mailto:" + mailAdr(b.email) + "?subject=" + encodeURIComponent(betreff) + "&body=" + encodeURIComponent(text);
 
-  function mailBestaetigung(b){
-    const anz = b.preis_web ? Math.round(b.preis_web * 0.3) : null;
-    return mailHref(b, `Buchungsbestätigung ${KONFIG.name}: ${deKurz(b.von)} – ${deKurz(b.bis)}`,
-`Hallo ${vorname(b)},
+  // Antwort-Mails in der Sprache, in der der Gast angefragt hat (Website-Anfragen) – sonst Deutsch
+  const LOCALE = { de: "de-DE", en: "en-GB", hr: "hr-HR", sl: "sl-SI" };
+  const SPRACHNAME = { de: "Deutsch", en: "Englisch", hr: "Kroatisch", sl: "Slowenisch" };
+  const sprachHinweis = b => b.sprache && b.sprache !== "de" && SPRACHNAME[b.sprache] ? " (" + SPRACHNAME[b.sprache] + ")" : "";
+  function mailWerte(b){
+    const l = LOCALE[b.sprache] ? b.sprache : "de", loc = LOCALE[l];
+    const lang = s => parse(s).toLocaleDateString(loc, { weekday: "short", day: "2-digit", month: "2-digit", year: "numeric" });
+    const kurz = s => parse(s).toLocaleDateString(loc, { day: "2-digit", month: "2-digit", year: "numeric" });
+    const eur = n => new Intl.NumberFormat(loc, { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n);
+    return { l, name: vorname(b), von: lang(b.von), bis: lang(b.bis), zeitraum: kurz(b.von) + " – " + kurz(b.bis),
+      n: naechte(b.von, b.bis), p: b.personen ?? "–", preis: b.preis_web ? eur(b.preis_web) : "",
+      anz: b.preis_web ? eur(Math.round(b.preis_web * 0.3)) : "", web: websiteUrl + "?lang=" + l + "#verfuegbarkeit", haus: KONFIG.name, user };
+  }
+  const MAIL = {
+    de: {
+      bestBetreff: v => `Buchungsbestätigung ${v.haus}: ${v.zeitraum}`,
+      best: v => `Hallo ${v.name},
 
 vielen Dank für deine Anfrage – wir freuen uns, dir den Aufenthalt in unserem Mobile Home zu bestätigen:
 
-Anreise:  ${deLang(b.von)} (ab 15:00 Uhr)
-Abreise:  ${deLang(b.bis)} (bis 10:00 Uhr)
-Nächte:   ${naechte(b.von, b.bis)}
-Personen: ${b.personen ?? "–"}
-${b.preis_web ? "Preis:    " + euro(b.preis_web) + " inkl. Endreinigung\n" : ""}
-Bitte überweise die Anzahlung von 30 %${anz ? " (" + euro(anz) + ")" : ""} auf folgendes Konto:
+Anreise:  ${v.von} (ab 15:00 Uhr)
+Abreise:  ${v.bis} (bis 10:00 Uhr)
+Nächte:   ${v.n}
+Personen: ${v.p}
+${v.preis ? `Preis:    ${v.preis} inkl. Endreinigung\n` : ""}
+Bitte überweise die Anzahlung von 30 %${v.anz ? ` (${v.anz})` : ""} auf folgendes Konto:
 [Kontoinhaber · IBAN · Verwendungszweck]
 
 Der Restbetrag ist 4 Wochen vor Anreise fällig.
@@ -647,23 +660,117 @@ Der Restbetrag ist 4 Wochen vor Anreise fällig.
 Den Schlüssel bekommst du bei der Ankunft an der Infobox am Eingang des Dalmacija Camps (Ivana Pavla II 40, 23233 Privlaka) – bitte gib ihn bei der Abreise dort auch wieder ab.
 
 Viele Grüße
-${user}`);
-  }
-  function mailAbsage(b){
-    return mailHref(b, `Deine Anfrage ${KONFIG.name}: ${deKurz(b.von)} – ${deKurz(b.bis)}`,
-`Hallo ${vorname(b)},
+${v.user}`,
+      absBetreff: v => `Deine Anfrage ${v.haus}: ${v.zeitraum}`,
+      abs: v => `Hallo ${v.name},
 
-vielen Dank für dein Interesse an unserem Mobile Home. Leider ist es im Zeitraum ${deKurz(b.von)} – ${deKurz(b.bis)} nicht verfügbar.
+vielen Dank für dein Interesse an unserem Mobile Home. Leider ist es im Zeitraum ${v.zeitraum} nicht verfügbar.
 
 Vielleicht passt ein anderer Termin? Die freien Zeiträume siehst du hier:
-${websiteUrl}#verfuegbarkeit
+${v.web}
 
 Viele Grüße
-${user}`);
-  }
+${v.user}`,
+    },
+    en: {
+      bestBetreff: v => `Booking confirmation ${v.haus}: ${v.zeitraum}`,
+      best: v => `Hello ${v.name},
+
+Thank you for your enquiry – we're happy to confirm your stay in our mobile home:
+
+Arrival:   ${v.von} (from 3 pm)
+Departure: ${v.bis} (by 10 am)
+Nights:    ${v.n}
+Guests:    ${v.p}
+${v.preis ? `Price:     ${v.preis} incl. final cleaning\n` : ""}
+Please transfer the 30% deposit${v.anz ? ` (${v.anz})` : ""} to the following account:
+[Account holder · IBAN · BIC · Reference]
+
+The balance is due 4 weeks before arrival.
+
+On arrival you'll get the key at the info point at the entrance of Dalmacija Camp (Ivana Pavla II 40, 23233 Privlaka) – please return it there when you leave.
+
+Best regards
+${v.user}`,
+      absBetreff: v => `Your enquiry ${v.haus}: ${v.zeitraum}`,
+      abs: v => `Hello ${v.name},
+
+Thank you for your interest in our mobile home. Unfortunately, it is not available from ${v.zeitraum}.
+
+Perhaps another date would suit you? You can see the available dates here:
+${v.web}
+
+Best regards
+${v.user}`,
+    },
+    hr: {
+      bestBetreff: v => `Potvrda rezervacije ${v.haus}: ${v.zeitraum}`,
+      best: v => `Pozdrav ${v.name},
+
+hvala na upitu – s veseljem ti potvrđujemo boravak u našoj mobilnoj kućici:
+
+Dolazak:  ${v.von} (od 15:00)
+Odlazak:  ${v.bis} (do 10:00)
+Noći:     ${v.n}
+Osobe:    ${v.p}
+${v.preis ? `Cijena:   ${v.preis} uključujući završno čišćenje\n` : ""}
+Molimo uplati predujam od 30 %${v.anz ? ` (${v.anz})` : ""} na sljedeći račun:
+[Vlasnik računa · IBAN · BIC · Poziv na broj]
+
+Ostatak iznosa dospijeva 4 tjedna prije dolaska.
+
+Ključ pri dolasku preuzimaš na info-punktu na ulazu u kamp Dalmacija (Ivana Pavla II 40, 23233 Privlaka) – molimo vrati ga ondje pri odlasku.
+
+Srdačan pozdrav
+${v.user}`,
+      absBetreff: v => `Tvoj upit ${v.haus}: ${v.zeitraum}`,
+      abs: v => `Pozdrav ${v.name},
+
+hvala na interesu za našu mobilnu kućicu. Nažalost, u terminu ${v.zeitraum} nije slobodna.
+
+Možda ti odgovara neki drugi termin? Slobodne termine možeš pogledati ovdje:
+${v.web}
+
+Srdačan pozdrav
+${v.user}`,
+    },
+    sl: {
+      bestBetreff: v => `Potrditev rezervacije ${v.haus}: ${v.zeitraum}`,
+      best: v => `Dober dan, ${v.name},
+
+hvala za povpraševanje – z veseljem ti potrjujemo bivanje v naši mobilni hišici:
+
+Prihod:   ${v.von} (od 15:00)
+Odhod:    ${v.bis} (do 10:00)
+Noči:     ${v.n}
+Osebe:    ${v.p}
+${v.preis ? `Cena:     ${v.preis} vključno s končnim čiščenjem\n` : ""}
+Prosimo, nakaži 30 % predplačila${v.anz ? ` (${v.anz})` : ""} na naslednji račun:
+[Imetnik računa · IBAN · BIC · Sklic]
+
+Preostanek zapade v plačilo 4 tedne pred prihodom.
+
+Ključ ob prihodu prevzameš na informacijski točki ob vhodu v kamp Dalmacija (Ivana Pavla II 40, 23233 Privlaka) – ob odhodu ga prosimo vrni tam.
+
+Lep pozdrav
+${v.user}`,
+      absBetreff: v => `Tvoje povpraševanje ${v.haus}: ${v.zeitraum}`,
+      abs: v => `Dober dan, ${v.name},
+
+hvala za zanimanje za našo mobilno hišico. Žal v terminu ${v.zeitraum} ni prosta.
+
+Morda ti ustreza kakšen drug termin? Proste termine si lahko ogledaš tukaj:
+${v.web}
+
+Lep pozdrav
+${v.user}`,
+    },
+  };
+  function mailBestaetigung(b){ const v = mailWerte(b), m = MAIL[v.l]; return mailHref(b, m.bestBetreff(v), m.best(v)); }
+  function mailAbsage(b){ const v = mailWerte(b), m = MAIL[v.l]; return mailHref(b, m.absBetreff(v), m.abs(v)); }
   const mailLinks = b => b.email ? [
-    { text: "Bestätigungs-Mail", href: mailBestaetigung(b) },
-    { text: "Absage-Mail", href: mailAbsage(b) },
+    { text: "Bestätigungs-Mail" + sprachHinweis(b), href: mailBestaetigung(b) },
+    { text: "Absage-Mail" + sprachHinweis(b), href: mailAbsage(b) },
     { text: "E-Mail schreiben", href: "mailto:" + mailAdr(b.email) },
   ] : [];
 
@@ -708,7 +815,7 @@ ${user}`);
         <div class="req-head">
           <div>
             <div class="req-dates">${esc(deLang(b.von))} → ${esc(deLang(b.bis))}</div>
-            <div class="req-meta">${nTxt(b.von, b.bis)} · ${esc(b.personen ?? "–")} Personen · eingegangen ${esc(deZeit(b.erstellt_am))}</div>
+            <div class="req-meta">${nTxt(b.von, b.bis)} · ${esc(b.personen ?? "–")} Personen · eingegangen ${esc(deZeit(b.erstellt_am))}${b.sprache && SPRACHNAME[b.sprache] ? " · Sprache: " + SPRACHNAME[b.sprache] : ""}</div>
           </div>
           ${statusBadge(b.status)}
         </div>
@@ -843,6 +950,7 @@ ${user}`);
     $("dlg-err").hidden = true;
     $("d-meta").textContent = b
       ? "Eingegangen " + deZeit(b.erstellt_am) + (b.quelle === "web" ? " über die Website" : "") +
+        (b.sprache && SPRACHNAME[b.sprache] ? " (" + SPRACHNAME[b.sprache] + ")" : "") +
         " · zuletzt geändert " + deZeit(b.geaendert_am) + (b.geaendert_von ? " von " + b.geaendert_von : "")
       : "";
     const ml = $("dlg-mail"); ml.innerHTML = "";

@@ -7,6 +7,7 @@
 <meta name="robots" content="noindex">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="assets/style.css">
+<script src="assets/i18n.js"></script>
 </head>
 <body>
 <nav class="nav">
@@ -15,12 +16,16 @@
       <span class="brand-mark" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 16c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><path d="M2 20c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><path d="M12 4l7 7H5z"/></svg></span>
       <span>Mobile Home Adria</span>
     </a>
-    <a class="btn btn-outline btn-sm" href="index.html">Zur Startseite</a>
+    <div class="nav-right">
+      <a class="btn btn-outline btn-sm" href="index.html" data-i18n="legal.back">Zur Startseite</a>
+      <div id="lang"></div>
+    </div>
   </div>
 </nav>
 
 <main class="container prose">
   <h1>Impressum</h1>
+  <p class="lang-note" id="lang-note" lang="" hidden></p>
 
   <h2>Angaben gemäß § 5 DDG</h2>
   <p>
@@ -51,9 +56,26 @@
 
 <footer>
   <div class="container foot">
-    <div><a href="index.html">Startseite</a></div>
-    <div class="foot-links"><a href="impressum.html">Impressum</a><a href="datenschutz.html">Datenschutz</a></div>
+    <div><a href="index.html" data-i18n="legal.back">Zur Startseite</a></div>
+    <div class="foot-links"><a href="impressum.html" data-i18n="foot.imprint">Impressum</a><a href="datenschutz.html" data-i18n="foot.privacy">Datenschutz</a></div>
   </div>
 </footer>
+<script>
+  // Diese Seite ist nur auf Deutsch – Navigation übersetzen und Hinweis zeigen
+  (function () {
+    const note = document.getElementById("lang-note");
+    function zeigen() {
+      I18N.anwenden();
+      document.documentElement.lang = "de";
+      note.textContent = I18N.t("legal.onlyGerman");
+      note.lang = I18N.lang;
+      note.hidden = I18N.lang === "de";
+      document.querySelectorAll("a[href^=\"index.html\"]").forEach(a => a.href = "index.html?lang=" + I18N.lang);
+    }
+    I18N.umschalter(document.getElementById("lang"));
+    I18N.beiWechsel(zeigen);
+    zeigen();
+  })();
+</script>
 </body>
 </html>

@@ -8,7 +8,9 @@ site/                  → öffentliche Website (GitHub Pages)
   admin/index.html     Verwaltung: Anfragen bestätigen, Kalender, Sperren
   einstellungen.js     Stammdaten, Kontakt, API-Adresse
   impressum.html, datenschutz.html
-  images/              Fotos (hero.jpg, foto-1.jpg … foto-5.jpg)
+  images/fotos/        web-optimierte Fotos (je 800 px fürs Raster, 1600 px für die Großansicht)
+  assets/i18n.js       alle Texte der Website in Deutsch, Englisch, Kroatisch, Slowenisch
+fotos-original/        Original-Kamerafotos (nur lokal, nicht im Repo)
 api/                   → API als Cloudflare Worker + D1-Datenbank
 .github/workflows/     automatisches Ausspielen von Website und API
 ```
@@ -68,7 +70,8 @@ npm run benutzer:remote -- anna
 | Eigennutzung / Wartung sperren | Verwaltung → Kalender → freien Tag anklicken (oder „+ Neuer Eintrag") |
 | Buchung ändern, verschieben, stornieren | Verwaltung → Eintrag anklicken |
 | Preise, Saisons, Mindestnächte, Endreinigung, max. Personen | Verwaltung → Tab „Preise & Regeln“ |
-| Fotos | `site/images/` (hero.jpg, foto-1.jpg … foto-5.jpg; Querformat, ~1600 px, < 500 KB) |
+| Texte der Website (alle Sprachen) | `site/assets/i18n.js` – jeden Text in allen vier Sprachen ändern |
+| Fotos austauschen/ergänzen | Original nach `fotos-original/`, daraus 800- und 1600-px-JPGs ohne Metadaten in `site/images/fotos/` erzeugen und in `site/index.html` in der Liste `FOTOS` eintragen (Beschriftung in `i18n.js` unter `gal.<name>`) |
 
 **Überschneidungen:** Die API verhindert, dass sich zwei bestätigte Buchungen oder Sperren überschneiden. Am Abreisetag darf der nächste Gast anreisen.
 
@@ -102,6 +105,7 @@ Unter `localhost` nutzt die Website automatisch die lokale API.
 - [x] `impressum.html` und `datenschutz.html` ausfüllen
 - [x] E-Mail und Telefon in `einstellungen.js`
 - [ ] Saisons/Preise ab 15.06.2027 in der Verwaltung ergänzen
-- [ ] Fotos in `site/images/`
+- [x] Fotos in `site/images/fotos/`
+- [ ] Kroatische und slowenische Texte von Muttersprachlern gegenlesen lassen
 - [x] `og:image`-Adresse in `site/index.html` auf die echte Domain setzen
 - [ ] Cloudflare-DPA zur Ablage herunterladen: https://www.cloudflare.com/cloudflare-customer-dpa/
