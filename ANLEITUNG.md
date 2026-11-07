@@ -63,16 +63,60 @@ Bei jeder neuen Anfrage gehen gleichzeitig zwei Mails raus:
 - **an den Gast:** Eingangsbestätigung in seiner Sprache (DE/EN/HR/SL). Absender ist `anfrage@mobile-home-privlaka.com`; Antworten landen bei `MAIL_ANTWORT_AN`.
 - **an dich (`NOTIFY_TO`):** Zeitraum, Personen, Preis, Sprache und ein Knopf zur Verwaltung, bewusst ohne Name und Kontaktdaten des Gastes.
 
-Einrichtung mit **Brevo** (EU-Anbieter, kostenlos bis 300 Mails/Tag):
-1. Konto auf brevo.com anlegen.
-2. In Brevo **Senders, Domains & Dedicated IPs → Domains → Add a domain**: `mobile-home-privlaka.com`. Brevo zeigt DNS-Einträge (Brevo-Code, DKIM, DMARC). Diese in Cloudflare unter **DNS → Records** eintragen (Proxy: „DNS only"), dann in Brevo **Authenticate** klicken.
-3. In Brevo **SMTP & API → API Keys → Generate a new API key**. Den Schlüssel direkt in Keeper ablegen.
-4. Im Ordner `api/`:
-   ```bash
-   npx wrangler secret put BREVO_API_KEY      # Schlüssel einfügen (aus Keeper)
-   npx wrangler secret put NOTIFY_TO          # deine E-Mail-Adresse für Benachrichtigungen
-   ```
-Fertig, ohne neues Ausspielen. Ohne Schlüssel funktioniert alles weiter, nur ohne automatische Mails. Alternativ geht **Resend** mit `RESEND_API_KEY`. Dann den Abschnitt in `datenschutz.html` anpassen.
+#### Einrichtung mit Brevo, Schritt für Schritt (EU-Anbieter, kostenlos bis 300 Mails/Tag, ca. 30 Minuten)
+
+Die Bezeichnungen in Brevo und Cloudflare können sich leicht ändern. Sinngemäß bleibt alles gleich.
+
+**Schritt 1 – Postfach `anfrage@mobile-home-privlaka.com` anlegen (Cloudflare, kostenlos)**
+Die Absenderadresse soll wirklich Mails empfangen können, z. B. falls Brevo einen Bestätigungscode dorthin schickt.
+1. dash.cloudflare.com → Domain **mobile-home-privlaka.com** → links **E-Mail → Email Routing**.
+2. **Get started / Aktivieren**. Cloudflare trägt die nötigen DNS-Einträge (MX, SPF) selbst ein, bestätigen.
+3. **Destination addresses → Add**: deine echte Mailadresse. Den Bestätigungslink in der Mail anklicken.
+4. **Routing rules → Create address**: Custom address `anfrage`, Action „Send to an email", Ziel: deine Adresse → **Save**.
+
+**Schritt 2 – Brevo-Konto**
+1. brevo.com → **Sign up free**. E-Mail und ein **in Keeper erzeugtes Passwort** verwenden.
+2. Mail bestätigen und die Fragen beantworten (Firma: „Mobile Home Adria", Website: mobile-home-privlaka.com). Den **Free**-Tarif wählen.
+3. Empfohlen: unter **Profil (oben rechts) → Security** die Zwei-Faktor-Anmeldung einschalten.
+
+**Schritt 3 – Domain bei Brevo bestätigen**
+1. Profil oben rechts → **Senders, Domains & Dedicated IPs** → Reiter **Domains** → **Add a domain** → `mobile-home-privlaka.com`.
+2. Bietet Brevo eine **automatische Einrichtung über Cloudflare** an, diese nehmen und fertig. Sonst **„Authenticate the domain yourself"**: Brevo zeigt 3–4 Einträge (Brevo-Code als TXT, DKIM als CNAME oder TXT, DMARC als TXT `_dmarc`).
+3. In Cloudflare → **DNS → Records → Add record** jeden Eintrag genau so anlegen: Typ, Name und Inhalt kopieren. Bei CNAME den **Proxy-Status auf „DNS only"** (graue Wolke) stellen.
+4. ⚠ Gibt es schon einen **SPF**-Eintrag (TXT `v=spf1 …` von Email Routing) und Brevo verlangt auch einen: **nicht** einen zweiten anlegen, sondern zusammenführen, z. B. `v=spf1 include:_spf.mx.cloudflare.net include:spf.brevo.com ~all`.
+5. Gibt es schon einen **DMARC**-Eintrag (`_dmarc`), ebenfalls nur einen behalten.
+6. Zurück in Brevo **Authenticate / Verify** klicken. Das dauert meist Minuten, selten bis zu einigen Stunden.
+
+**Schritt 4 – Absender anlegen**
+1. **Senders, Domains & Dedicated IPs** → Reiter **Senders** → **Add sender**: Name `Mobile Home Adria`, E-Mail `anfrage@mobile-home-privlaka.com`.
+2. Kommt ein Bestätigungscode, landet er dank Schritt 1 in deinem Postfach.
+
+**Schritt 5 – API-Schlüssel**
+1. Profil oben rechts → **SMTP & API** → Reiter **API Keys** → **Generate a new API key**, Name z. B. `mobile-home-api`.
+2. Den Schlüssel **sofort in Keeper** speichern. Er wird nur einmal angezeigt. Nicht in Dateien, Chats oder den Browser kopieren.
+
+**Schritt 6 – IP-Sperre bei Brevo ausschalten (wichtig)**
+Brevo blockiert API-Aufrufe von unbekannten IP-Adressen. Cloudflare-Worker haben wechselnde IPs.
+- Profil → **Security** → **Authorised IPs** → Sperre **deaktivieren**.
+- Ohne diesen Schritt kommen keine Mails an. In den Logs steht dann „unrecognised IP address".
+
+**Schritt 7 – Schlüssel und Benachrichtigungsadresse in die API eintragen**
+Im Terminal (VS Code → Terminal), Ordner `api/`:
+```powershell
+cd "C:\Users\mini pekka\Desktop\mobile-home\api"
+npx wrangler secret put BREVO_API_KEY      # Schlüssel aus Keeper einfügen, Enter
+npx wrangler secret put NOTIFY_TO          # deine Adresse für Benachrichtigungen, Enter
+```
+Fertig, ohne neues Ausspielen.
+
+**Schritt 8 – Testen**
+1. Auf der Website eine Anfrage mit deiner eigenen E-Mail stellen, gern in einer anderen Sprache (z. B. 🌐 HR).
+2. Innerhalb einer Minute sollten **zwei Mails** ankommen: die Eingangsbestätigung (als Gast) und die Benachrichtigung mit dem Knopf zur Verwaltung. Auch im **Spam-Ordner** nachsehen.
+3. In der Verwaltung steht bei der Anfrage „✓ Eingangsbestätigung automatisch gesendet".
+4. Test-Anfrage in der Verwaltung **löschen**.
+5. Kommt nichts an: Brevo → **Transactional → Logs** ansehen, oder im Terminal `npx wrangler tail` laufen lassen und erneut testen.
+
+Ohne Schlüssel funktioniert alles weiter, nur ohne automatische Mails. Alternativ geht **Resend** mit `RESEND_API_KEY`. Dann den Abschnitt in `datenschutz.html` anpassen.
 
 Schutz gegen Missbrauch: höchstens 5 Anfragen pro Stunde je Anschluss, höchstens 40 automatische Gäste-Mails pro Tag. Im Gruß wird nur der Vorname verwendet, nichts, was nach Link aussieht.
 
