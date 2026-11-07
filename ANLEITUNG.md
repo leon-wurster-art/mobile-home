@@ -75,7 +75,7 @@ npm run benutzer:remote -- anna
 
 **Überschneidungen:** Die API verhindert, dass sich zwei bestätigte Buchungen oder Sperren überschneiden. Am Abreisetag darf der nächste Gast anreisen.
 
-**Jedes Jahr:** In der Verwaltung unter „Preise & Regeln“ auf „Saisons ins Folgejahr kopieren“ klicken, Daten und Preise anpassen, speichern. Solange „Nur innerhalb der Saisons buchbar“ angehakt ist, sind Nächte außerhalb der Saisons nicht buchbar. Die Verwaltung warnt, wenn das Saisonende näher als 9 Monate rückt. Den Preis rechnet die API selbst nach; der Preis in einer Anfrage stammt also immer aus den gespeicherten Saisons.
+**Preise:** Das Camp ist ganzjährig geöffnet. Unter „Preise & Regeln“ gilt der **Nebensaison-Preis** an allen Tagen ohne Saison; die **Hauptsaison** ist als *jährliche* Saison eingetragen (gilt jedes Jahr zu denselben Daten, auch über Silvester möglich). *Einmalige* Sonderzeiträume mit festem Datum haben Vorrang. Den Preis rechnet die API selbst nach – der Preis in einer Anfrage stammt immer aus den gespeicherten Saisons. Der Haken „Außerhalb der Saisons keine Buchung“ ist nur für eine Winterpause gedacht.
 
 **Datenschutz, läuft automatisch jede Nacht:**
 - Abgelehnte und stornierte Anfragen werden nach 180 Tagen gelöscht.
@@ -104,7 +104,7 @@ Unter `localhost` nutzt die Website automatisch die lokale API.
 ## Vor dem Livegang
 - [x] `impressum.html` und `datenschutz.html` ausfüllen
 - [x] E-Mail und Telefon in `einstellungen.js`
-- [ ] Saisons/Preise ab 15.06.2027 in der Verwaltung ergänzen
+- [x] Preise ganzjährig (Haupt-/Nebensaison) eingerichtet – Werte in der Verwaltung prüfen
 - [x] Fotos in `site/images/fotos/`
 - [ ] Kroatische und slowenische Texte von Muttersprachlern gegenlesen lassen
 - [x] `og:image`-Adresse in `site/index.html` auf die echte Domain setzen

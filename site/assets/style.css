@@ -309,3 +309,10 @@ footer{border-top:1px solid var(--border);padding:36px 0;background:var(--muted)
 .prose .stand{color:var(--muted-foreground);font-size:.85rem}
 .todo{background:#fff3c4;border-radius:4px;padding:0 4px}
 .todo-box{border:1px dashed #d9b300;background:#fffbea;border-radius:10px;padding:12px 16px;font-size:.85rem;margin:16px 0}
+
+/* Preisübersicht unter „Gut zu wissen“ */
+.price-list{list-style:none;display:grid;gap:6px;margin-top:2px}
+.price-list li{display:flex;justify-content:space-between;gap:12px;font-size:.84rem;color:var(--muted-foreground);border-bottom:1px dashed var(--border);padding-bottom:5px}
+.price-list li:last-child{border-bottom:0;padding-bottom:0}
+.price-list b{display:inline;margin:0;color:var(--foreground);font-size:.86rem;white-space:nowrap}
+.know p a{color:var(--primary);white-space:nowrap}

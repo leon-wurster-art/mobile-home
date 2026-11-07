@@ -263,6 +263,7 @@
         <div class="poi"><b data-i18n="poi.2n"></b><span data-i18n="poi.2v"></span></div>
         <div class="poi"><b data-i18n="poi.3n"></b><span data-i18n="poi.3v"></span></div>
         <div class="poi"><b data-i18n="poi.4n"></b><span data-i18n="poi.4v"></span></div>
+        <div class="poi"><b data-i18n="poi.8n"></b><span data-i18n="poi.8v"></span></div>
         <div class="poi"><b data-i18n="poi.5n"></b><span data-i18n="poi.5v"></span></div>
         <div class="poi"><b data-i18n="poi.6n"></b><span data-i18n="poi.6v"></span></div>
         <div class="poi"><b data-i18n="poi.7n"></b><span data-i18n="poi.7v"></span></div>
@@ -278,11 +279,14 @@
   <p class="section-sub" data-i18n="info.sub"></p>
   <div class="know">
     <div class="card"><b data-i18n="info.checkT"></b><p data-i18n="info.checkD"></p></div>
+    <div class="card"><b data-i18n="info.pricesT"></b><ul class="price-list" id="know-prices"></ul></div>
     <div class="card"><b data-i18n="info.minT"></b><p id="know-min"></p></div>
     <div class="card"><b data-i18n="info.cleanT"></b><p id="know-clean"></p></div>
     <div class="card"><b data-i18n="info.payT"></b><p data-i18n="info.payD"></p></div>
     <div class="card"><b data-i18n="info.cancelT"></b><p data-i18n="info.cancelD"></p></div>
     <div class="card"><b data-i18n="info.taxT"></b><p data-i18n="info.taxD"></p></div>
+    <div class="card"><b data-i18n="info.campT"></b><p data-i18n-html="info.campD"></p></div>
+    <div class="card"><b data-i18n="info.tripsT"></b><p data-i18n="info.tripsD"></p></div>
   </div>
 </section>
 
@@ -388,11 +392,16 @@
   let P = null, saisons = [], horizont;
   function setzePreise(p){
     P = p || null;
-    saisons = P ? (P.saisons || []).map(s => ({ ...s, v: parse(s.von), b: parse(s.bis) })) : [];
+    saisons = P ? (P.saisons || []) : [];
     horizont = new Date(heute.getFullYear(), heute.getMonth() + ((P && P.buchbarMonateVoraus) || 18) + 1, 1);
   }
   setzePreise(null);
-  const saisonFuer = d => saisons.find(s => d >= s.v && d <= s.b);
+  // Feste Zeiträume haben Vorrang; jährliche Saisons (von/bis = "MM-TT") gelten jedes Jahr, auch über Silvester
+  const imJahresbereich = (md, s) => (s.von <= s.bis ? md >= s.von && md <= s.bis : md >= s.von || md <= s.bis);
+  const saisonFuer = d => {
+    const ds = key(d), md = ds.slice(5);
+    return saisons.find(s => !s.jaehrlich && s.von <= ds && ds <= s.bis) || saisons.find(s => s.jaehrlich && imJahresbereich(md, s));
+  };
   const preisFuerNacht = d => { const s = saisonFuer(d); return s ? s.preisProNacht : P.standardPreis; };
   const nightClosed = d => d >= horizont || (!!P && P.nurInSaisonBuchbar && !saisonFuer(d));
   const minNaechteFuer = start => { const s = saisonFuer(start); return (s && s.minNaechte) || (P ? P.minNaechte : 1); };
@@ -524,8 +533,8 @@
 
   function zeigeRegeln(){
     bauePersonen(P ? P.maxPersonen : 5);
-    if (!P) { set("sum-price-hint", t("sum.onRequest")); set("know-min", ""); set("know-clean", ""); return; }
-    const kuenftig = saisons.filter(s => s.b >= heute);
+    if (!P) { set("sum-price-hint", t("sum.onRequest")); set("know-min", ""); set("know-clean", ""); $("know-prices").textContent = t("sum.onRequest"); return; }
+    const kuenftig = saisons.filter(s => s.jaehrlich || s.bis >= key(heute));
     const preise = kuenftig.map(s => s.preisProNacht);
     if (!P.nurInSaisonBuchbar || !preise.length) preise.push(P.standardPreis);
     set("sum-price-hint", t("sum.from", { p: euro(Math.min(...preise)) }));
@@ -534,6 +543,19 @@
     const zusatz = Object.entries(mehr).map(([n, m]) => n + ": " + m).join(", ");
     set("know-min", t("info.min", { n: P.minNaechte, extra: zusatz ? " (" + zusatz + ")" : "" }));
     set("know-clean", t("info.clean", { p: euro(P.endreinigung) }));
+
+    // Preisübersicht: jährliche Saisons, übrige Zeit (Nebensaison), künftige Sonderzeiträume
+    const tagMonat = md => { const [m, d] = md.split("-").map(Number); return new Date(2024, m - 1, d).toLocaleDateString(I18N.locale, { day: "2-digit", month: "2-digit" }); };
+    const zeilen = kuenftig.filter(s => s.jaehrlich).map(s => [gross(I18N.saison(s.name)) + " (" + tagMonat(s.von) + "–" + tagMonat(s.bis) + ")", s.preisProNacht]);
+    if (!P.nurInSaisonBuchbar) zeilen.push([t("info.base"), P.standardPreis]);
+    kuenftig.filter(s => !s.jaehrlich).slice(0, 3).forEach(s => zeilen.push([gross(I18N.saison(s.name)) + " " + fmtShort(parse(s.von)) + "–" + fmtShort(parse(s.bis)), s.preisProNacht]));
+    const ul = $("know-prices");
+    ul.innerHTML = "";
+    zeilen.forEach(([name, preis]) => {
+      const li = document.createElement("li"), a = document.createElement("span"), b = document.createElement("b");
+      a.textContent = name; b.textContent = euro(preis);
+      li.append(a, b); ul.appendChild(li);
+    });
   }
 
   /* ---------- Kalender ---------- */

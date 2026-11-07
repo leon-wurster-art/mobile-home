@@ -109,6 +109,9 @@ dialog::backdrop{background:rgba(12,26,32,.45)}
 .pr-table tbody tr:hover{background:transparent}
 .pr-table input{width:100%;min-width:90px;font:inherit;font-size:.86rem;padding:7px 9px;border:1px solid var(--input);border-radius:8px;background:var(--background);color:var(--foreground)}
 .pr-table input[type=number]{min-width:72px}
+.pr-table input.md{min-width:80px;max-width:110px}
+.pr-table select{width:100%;min-width:100px;font:inherit;font-size:.86rem;padding:7px 8px;border:1px solid var(--input);border-radius:8px;background:var(--background);color:var(--foreground)}
+.pr-table select:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--ring)}
 .pr-table input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--ring)}
 .pr-table tr.vergangen input{color:var(--muted-foreground);background:var(--muted)}
 .pr-table tr.konflikt input{border-color:var(--destructive)}
@@ -231,24 +234,26 @@ dialog::backdrop{background:rgba(12,26,32,.45)}
             <div class="field"><label for="p-minNaechte">Mindestnächte</label><input id="p-minNaechte" type="number" min="1" max="60" step="1" required></div>
             <div class="field"><label for="p-maxPersonen">Max. Personen</label><input id="p-maxPersonen" type="number" min="1" max="50" step="1" required></div>
             <div class="field"><label for="p-buchbarMonateVoraus">Buchbar im Voraus (Monate)</label><input id="p-buchbarMonateVoraus" type="number" min="2" max="36" step="1" required></div>
-            <div class="field"><label for="p-standardPreis">Preis außerhalb der Saisons (€/Nacht)</label><input id="p-standardPreis" type="number" min="0" max="10000" step="1" required></div>
+            <div class="field"><label for="p-standardPreis">Nebensaison (€/Nacht)</label><input id="p-standardPreis" type="number" min="0" max="10000" step="1" required></div>
           </div>
+          <p class="dlg-info" style="margin:0 0 10px">Der <b>Nebensaison-Preis</b> gilt an allen Tagen, für die unten keine Saison eingetragen ist. Das Camp ist ganzjährig geöffnet – also z. B. nur die Hauptsaison als jährliche Saison eintragen, fertig.</p>
           <label class="check" style="margin:2px 0 0"><input type="checkbox" id="p-nurInSaisonBuchbar">
-            <span><b style="color:var(--foreground)">Nur innerhalb der Saisons buchbar</b> – außerhalb (z. B. Winter, Campingplatz geschlossen) sind keine Anfragen möglich. Ohne Haken gilt dort der Preis „außerhalb der Saisons“.</span></label>
+            <span><b style="color:var(--foreground)">Außerhalb der Saisons keine Buchung</b> – nur bei einer Winterpause anhaken. Dann sind Tage ohne Saison im Kalender gesperrt und der Nebensaison-Preis wird nicht verwendet.</span></label>
         </div>
 
         <div class="card pr-card">
           <div class="pr-head">
-            <div><h3>Saisons &amp; Preise</h3><p class="dlg-info" style="margin:2px 0 0">„Von“ = erste Nacht, „Bis“ = letzte Nacht der Saison. Mindestnächte leer = Standard; maßgeblich ist die Saison der Anreise.</p></div>
+            <div><h3>Saisons &amp; Preise</h3><p class="dlg-info" style="margin:2px 0 0"><b>Jährlich</b> = gilt jedes Jahr zu denselben Daten (z. B. Hauptsaison 01.07.–31.08.). <b>Einmalig</b> = Sonderzeitraum mit festem Datum, hat Vorrang vor jährlichen Saisons. „Von“ = erste Nacht, „Bis“ = letzte Nacht. Mindestnächte leer = Standard; maßgeblich ist die Saison der Anreise.</p></div>
             <div class="pr-actions">
-              <button type="button" class="btn btn-outline btn-sm" id="p-kopie" title="Saisons des letzten eingetragenen Jahres mit gleichen Daten ins Folgejahr übernehmen">Saisons ins Folgejahr kopieren</button>
-              <button type="button" class="btn btn-outline btn-sm" id="p-add">+ Saison</button>
+              <button type="button" class="btn btn-outline btn-sm" id="p-add-jahr">+ Jährliche Saison</button>
+              <button type="button" class="btn btn-outline btn-sm" id="p-add">+ Sonderzeitraum</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="p-kopie" title="Einmalige Zeiträume des letzten eingetragenen Jahres mit gleichen Daten ins Folgejahr übernehmen">Sonderzeiträume ins Folgejahr kopieren</button>
             </div>
           </div>
           <div class="alert alert-warn" id="p-warn" hidden></div>
           <div class="table-wrap">
             <table class="pr-table">
-              <thead><tr><th>Name</th><th>Von</th><th>Bis</th><th>€ / Nacht</th><th>Min. Nächte</th><th><span class="sr-only">Entfernen</span></th></tr></thead>
+              <thead><tr><th>Name</th><th>Wiederholung</th><th>Von</th><th>Bis</th><th>€ / Nacht</th><th>Min. Nächte</th><th><span class="sr-only">Entfernen</span></th></tr></thead>
               <tbody id="p-rows"></tbody>
             </table>
           </div>
@@ -498,40 +503,68 @@ dialog::backdrop{background:rgba(12,26,32,.45)}
     setzeDirty(pDirty);
   }
 
+  // Jährliche Saisons: gespeichert als "MM-TT", angezeigt/eingegeben als "TT.MM."
+  const mdAnzeige = md => /^\d{2}-\d{2}$/.test(md || "") ? md.slice(3) + "." + md.slice(0, 2) + "." : (md || "");
+  function mdLesen(txt){
+    const m = String(txt).trim().match(/^(\d{1,2})\.(\d{1,2})\.?$/);
+    if (!m) return null;
+    const d = Number(m[1]), mon = Number(m[2]);
+    if (mon < 1 || mon > 12 || d < 1 || d > new Date(2024, mon, 0).getDate()) return null;
+    return String(mon).padStart(2, "0") + "-" + String(d).padStart(2, "0");
+  }
+  const vergangen = s => !s.jaehrlich && s.bis && s.bis < heute;
+  const datumFeld = (s, k) => s.jaehrlich
+    ? `<input data-k="${k}" class="md" value="${esc(s["_" + k] ?? mdAnzeige(s[k]))}" placeholder="TT.MM." inputmode="decimal" maxlength="6" aria-label="${k === "von" ? "Von (erste Nacht)" : "Bis (letzte Nacht)"} – Tag.Monat">`
+    : `<input data-k="${k}" type="date" value="${esc(s[k])}" aria-label="${k === "von" ? "Von (erste Nacht)" : "Bis (letzte Nacht)"}">`;
+
   function renderSaisons(){
     const tb = $("p-rows");
-    tb.innerHTML = pEntwurf.saisons.map((s, i) => `<tr data-i="${i}" class="${s.bis && s.bis < heute ? "vergangen" : ""}">
+    tb.innerHTML = pEntwurf.saisons.map((s, i) => `<tr data-i="${i}" class="${vergangen(s) ? "vergangen" : ""}">
       <td><input data-k="name" value="${esc(s.name)}" maxlength="40" aria-label="Name"></td>
-      <td><input data-k="von" type="date" value="${esc(s.von)}" aria-label="Von (erste Nacht)"></td>
-      <td><input data-k="bis" type="date" value="${esc(s.bis)}" aria-label="Bis (letzte Nacht)"></td>
+      <td><select data-k="jaehrlich" aria-label="Wiederholung"><option value="1"${s.jaehrlich ? " selected" : ""}>jährlich</option><option value="0"${s.jaehrlich ? "" : " selected"}>einmalig</option></select></td>
+      <td>${datumFeld(s, "von")}</td>
+      <td>${datumFeld(s, "bis")}</td>
       <td><input data-k="preisProNacht" type="number" min="0" max="10000" step="1" value="${esc(s.preisProNacht)}" aria-label="Preis pro Nacht"></td>
       <td><input data-k="minNaechte" type="number" min="1" max="60" step="1" value="${esc(s.minNaechte ?? "")}" placeholder="${esc(pEntwurf.minNaechte)}" aria-label="Mindestnächte"></td>
       <td><button type="button" class="pr-del" data-del="${i}" title="Saison entfernen" aria-label="Saison entfernen">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></td>
-    </tr>`).join("") || `<tr><td colspan="6" class="muted" style="padding:16px 6px">Noch keine Saison eingetragen.</td></tr>`;
+    </tr>`).join("") || `<tr><td colspan="7" class="muted" style="padding:16px 6px">Noch keine Saison eingetragen – dann gilt ganzjährig der Nebensaison-Preis.</td></tr>`;
     pruefeSaisons();
   }
 
-  // Live-Prüfung: Überschneidungen, Lücken, Ende des buchbaren Zeitraums
+  // Live-Prüfung: Überschneidungen, ungültige Daten, Ende des buchbaren Zeitraums
   function pruefeSaisons(){
     const rows = [...$("p-rows").querySelectorAll("tr[data-i]")];
     rows.forEach(r => r.classList.remove("konflikt"));
     const hinweise = [];
-    const sortiert = pEntwurf.saisons.map((s, i) => ({ ...s, i })).filter(s => s.von && s.bis).sort((a, b) => a.von.localeCompare(b.von));
-    for (let k = 1; k < sortiert.length; k++){
-      const a = sortiert[k - 1], b = sortiert[k];
-      if (b.von <= a.bis) {
-        hinweise.push(`„${a.name}“ und „${b.name}“ überschneiden sich (${deKurz(b.von)} – ${deKurz(a.bis)}).`);
-        rows.filter(r => [a.i, b.i].includes(Number(r.dataset.i))).forEach(r => r.classList.add("konflikt"));
+    const markiere = (...is) => rows.filter(r => is.includes(Number(r.dataset.i))).forEach(r => r.classList.add("konflikt"));
+    const alle = pEntwurf.saisons.map((s, i) => ({ ...s, i }));
+
+    // einmalige Zeiträume untereinander
+    const fest = alle.filter(s => !s.jaehrlich && s.von && s.bis).sort((a, b) => a.von.localeCompare(b.von));
+    for (let k = 1; k < fest.length; k++){
+      const a = fest[k - 1], b = fest[k];
+      if (b.von <= a.bis) { hinweise.push(`„${a.name}“ und „${b.name}“ überschneiden sich (${deKurz(b.von)} – ${deKurz(a.bis)}).`); markiere(a.i, b.i); }
+    }
+    alle.forEach(s => { if (!s.jaehrlich && s.von && s.bis && s.bis < s.von) { hinweise.push(`„${s.name || "Saison " + (s.i + 1)}“: „Bis“ liegt vor „Von“.`); markiere(s.i); } });
+
+    // jährliche Saisons untereinander (dürfen über Silvester gehen)
+    const jahr = alle.filter(s => s.jaehrlich);
+    jahr.forEach(s => { if (!s.von || !s.bis) { hinweise.push(`„${s.name || "Saison " + (s.i + 1)}“: Datum bitte als TT.MM. eingeben (z. B. 01.07.).`); markiere(s.i); } });
+    const abschnitte = s => (s.von <= s.bis ? [[s.von, s.bis]] : [[s.von, "12-31"], ["01-01", s.bis]]);
+    const gueltig = jahr.filter(s => s.von && s.bis);
+    for (let a = 0; a < gueltig.length; a++) for (let b = a + 1; b < gueltig.length; b++) {
+      if (abschnitte(gueltig[a]).some(([a1, a2]) => abschnitte(gueltig[b]).some(([b1, b2]) => a1 <= b2 && b1 <= a2))) {
+        hinweise.push(`Die jährlichen Saisons „${gueltig[a].name}“ und „${gueltig[b].name}“ überschneiden sich.`); markiere(gueltig[a].i, gueltig[b].i);
       }
     }
-    pEntwurf.saisons.forEach((s, i) => { if (s.von && s.bis && s.bis < s.von) { hinweise.push(`„${s.name || "Saison " + (i + 1)}“: „Bis“ liegt vor „Von“.`); rows[i] && rows[i].classList.add("konflikt"); } });
-    if (pEntwurf.nurInSaisonBuchbar) {
-      const kuenftig = sortiert.filter(s => s.bis >= heute);
+
+    if (pEntwurf.nurInSaisonBuchbar && !gueltig.length) {
+      const kuenftig = fest.filter(s => s.bis >= heute);
       if (!kuenftig.length) hinweise.push("Es ist keine aktuelle oder künftige Saison eingetragen – auf der Website ist derzeit nichts buchbar.");
       else {
         const ende = kuenftig[kuenftig.length - 1].bis;
-        if (ende < addDays(heute, 270)) hinweise.push(`Buchbar nur bis ${deKurz(ende)} – danach ist keine Saison eingetragen. Tipp: „Saisons ins Folgejahr kopieren“.`);
+        if (ende < addDays(heute, 270)) hinweise.push(`Buchbar nur bis ${deKurz(ende)} – danach ist keine Saison eingetragen. Tipp: jährliche Saisons verwenden oder den Haken „Außerhalb der Saisons keine Buchung“ entfernen.`);
       }
     }
     const w = $("p-warn");
@@ -539,16 +572,41 @@ dialog::backdrop{background:rgba(12,26,32,.45)}
     w.hidden = !hinweise.length;
   }
 
-  $("p-rows").addEventListener("input", e => {
-    const inp = e.target.closest("input[data-k]"); if (!inp) return;
-    const s = pEntwurf.saisons[Number(inp.closest("tr").dataset.i)];
+  function saisonFeldGeaendert(e){
+    const inp = e.target.closest("[data-k]"); if (!inp) return;
+    const tr = inp.closest("tr"), s = pEntwurf.saisons[Number(tr.dataset.i)];
     const k = inp.dataset.k, v = inp.value.trim();
-    s[k] = (k === "preisProNacht" || k === "minNaechte") ? (v === "" ? null : Number(v)) : v;
-    if (k === "minNaechte" && s.minNaechte == null) delete s.minNaechte;
+    if (k === "jaehrlich") {
+      if (e.type !== "change") return;
+      const jetzt = v === "1";
+      if (jetzt === !!s.jaehrlich) return;
+      if (jetzt) {                                   // einmalig → jährlich: Tag/Monat übernehmen
+        s.von = s.von ? s.von.slice(5) : "07-01"; s.bis = s.bis ? s.bis.slice(5) : "08-31"; s.jaehrlich = true;
+      } else {                                       // jährlich → einmalig: nächstes Vorkommen
+        const jahrZahl = Number(heute.slice(0, 4));
+        let von = jahrZahl + "-" + (s.von || "07-01"), bis = jahrZahl + "-" + (s.bis || "08-31");
+        if (bis < von) bis = (jahrZahl + 1) + "-" + (s.bis || "08-31");
+        if (bis < heute) { von = (jahrZahl + 1) + von.slice(4); bis = (Number(bis.slice(0, 4)) + 1) + bis.slice(4); }
+        s.von = von; s.bis = bis; delete s.jaehrlich;
+      }
+      delete s._von; delete s._bis;
+      setzeDirty(true);
+      renderSaisons();
+      return;
+    }
+    if (s.jaehrlich && (k === "von" || k === "bis")) {
+      s["_" + k] = inp.value;                        // Eingabe merken, gültiges Datum speichern
+      s[k] = mdLesen(v) || "";
+    } else {
+      s[k] = (k === "preisProNacht" || k === "minNaechte") ? (v === "" ? null : Number(v)) : v;
+      if (k === "minNaechte" && s.minNaechte == null) delete s.minNaechte;
+    }
     setzeDirty(true);
-    if (k === "von" || k === "bis") inp.closest("tr").classList.toggle("vergangen", !!s.bis && s.bis < heute);
+    if (k === "von" || k === "bis") tr.classList.toggle("vergangen", !!vergangen(s));
     pruefeSaisons();
-  });
+  }
+  $("p-rows").addEventListener("input", saisonFeldGeaendert);
+  $("p-rows").addEventListener("change", saisonFeldGeaendert);
   $("p-rows").addEventListener("click", e => {
     const b = e.target.closest("[data-del]"); if (!b) return;
     const s = pEntwurf.saisons[Number(b.dataset.del)];
@@ -564,8 +622,17 @@ dialog::backdrop{background:rgba(12,26,32,.45)}
   }));
   $("p-nurInSaisonBuchbar").addEventListener("change", e => { pEntwurf.nurInSaisonBuchbar = e.target.checked; setzeDirty(true); pruefeSaisons(); });
 
+  $("p-add-jahr").addEventListener("click", () => {
+    const hatHaupt = pEntwurf.saisons.some(s => s.jaehrlich && s.name === "Hauptsaison");
+    pEntwurf.saisons.push({ name: hatHaupt ? "" : "Hauptsaison", jaehrlich: true, von: "07-01", bis: "08-31", preisProNacht: pEntwurf.standardPreis });
+    setzeDirty(true);
+    renderSaisons();
+    const rows = $("p-rows").querySelectorAll("tr[data-i]");
+    rows[rows.length - 1].querySelector("input").focus();
+  });
+
   $("p-add").addEventListener("click", () => {
-    const letzte = pEntwurf.saisons.map(s => s.bis).filter(Boolean).sort().pop();
+    const letzte = pEntwurf.saisons.filter(s => !s.jaehrlich).map(s => s.bis).filter(Boolean).sort().pop();
     const von = letzte && letzte >= heute ? addDays(letzte, 1) : heute;
     pEntwurf.saisons.push({ name: "", von, bis: addDays(von, 30), preisProNacht: pEntwurf.standardPreis });
     setzeDirty(true);
@@ -576,13 +643,14 @@ dialog::backdrop{background:rgba(12,26,32,.45)}
 
   // Alle Saisons des letzten eingetragenen Jahres mit gleichen Daten ins Folgejahr übernehmen
   $("p-kopie").addEventListener("click", () => {
-    const jahre = pEntwurf.saisons.filter(s => s.von).map(s => Number(s.von.slice(0, 4)));
-    if (!jahre.length) { toast("Noch keine Saison zum Kopieren vorhanden.", null, true); return; }
+    const fest = pEntwurf.saisons.filter(s => !s.jaehrlich && s.von);
+    const jahre = fest.map(s => Number(s.von.slice(0, 4)));
+    if (!jahre.length) { toast("Keine einmaligen Zeiträume zum Kopieren – jährliche Saisons gelten ohnehin jedes Jahr.", null, true); return; }
     const jahr = Math.max(...jahre);
     const plusJahr = s => { const [y, m, d] = s.split("-").map(Number); const t = new Date(y + 1, m - 1, Math.min(d, new Date(y + 1, m, 0).getDate())); return key(t); };
-    const neu = pEntwurf.saisons.filter(s => s.von && Number(s.von.slice(0, 4)) === jahr)
+    const neu = fest.filter(s => Number(s.von.slice(0, 4)) === jahr)
       .map(s => ({ ...s, von: plusJahr(s.von), bis: plusJahr(s.bis) }));
-    const frei = neu.filter(n => !pEntwurf.saisons.some(s => s.von <= n.bis && n.von <= s.bis));
+    const frei = neu.filter(n => !fest.some(s => s.von <= n.bis && n.von <= s.bis));
     if (!frei.length) { toast(`Für ${jahr + 1} sind bereits Saisons eingetragen.`, null, true); return; }
     pEntwurf.saisons.push(...frei);
     pEntwurf.saisons.sort((a, b) => (a.von || "9").localeCompare(b.von || "9"));
@@ -869,7 +937,9 @@ ${v.user}`,
         const cls = ["aday"];
         if (ds < heute) cls.push("past");
         if (ds === heute) cls.push("today");
-        if (!es.length && preise && preise.nurInSaisonBuchbar && !preise.saisons.some(s => s.von <= ds && ds <= s.bis)) cls.push("zu");
+        if (!es.length && preise && preise.nurInSaisonBuchbar && !preise.saisons.some(s => s.jaehrlich
+              ? (s.von <= s.bis ? ds.slice(5) >= s.von && ds.slice(5) <= s.bis : ds.slice(5) >= s.von || ds.slice(5) <= s.bis)
+              : s.von <= ds && ds <= s.bis)) cls.push("zu");
         if (es.length){
           const top = es[0];
           cls.push("n-" + top.status);

@@ -292,7 +292,7 @@ async function konfliktFehler(env, von, bis, ohneId) {
 /* ---------------- Preise & Regeln ---------------- */
 const STANDARD_PREISE = {
   standardPreis: 75, endreinigung: 60, minNaechte: 3, maxPersonen: 5,
-  buchbarMonateVoraus: 18, nurInSaisonBuchbar: true, saisons: [],
+  buchbarMonateVoraus: 18, nurInSaisonBuchbar: false, saisons: [],   // Camp ist ganzjährig geöffnet
 };
 
 async function ladePreise(env) {
@@ -301,7 +301,12 @@ async function ladePreise(env) {
   return { ...STANDARD_PREISE, ...JSON.parse(r.wert), geaendert_am: r.geaendert_am, geaendert_von: r.geaendert_von };
 }
 
-const saisonFuer = (p, ds) => p.saisons.find(s => s.von <= ds && ds <= s.bis);
+// Saison für eine Nacht: feste Zeiträume (Sonderzeiträume) haben Vorrang vor jährlichen Saisons.
+// Jährliche Saisons speichern von/bis als "MM-TT" und dürfen über den Jahreswechsel gehen (z. B. 12-20 bis 01-06).
+const imJahresbereich = (md, s) => (s.von <= s.bis ? md >= s.von && md <= s.bis : md >= s.von || md <= s.bis);
+const saisonFuer = (p, ds) =>
+  p.saisons.find(s => !s.jaehrlich && s.von <= ds && ds <= s.bis) ||
+  p.saisons.find(s => s.jaehrlich && imJahresbereich(ds.slice(5), s));
 
 function preisBerechnen(p, von, bis) {
   let summe = 0;
@@ -334,21 +339,33 @@ function preisePruefen(d) {
   p.saisons = d.saisons.map((s, i) => {
     if (!s || typeof s !== "object") throw new HttpError(400, `Saison ${i + 1}: ungültig.`);
     const nr = `Saison ${i + 1}`;
+    const jaehrlich = s.jaehrlich === true;
     const r = {
       name: V.text(s.name, `${nr}: Name`, 40, true),
-      von: V.datum(s.von, `${nr}: Von`),
-      bis: V.datum(s.bis, `${nr}: Bis`),
+      von: jaehrlich ? V.monatTag(s.von, `${nr}: Von`) : V.datum(s.von, `${nr}: Von`),
+      bis: jaehrlich ? V.monatTag(s.bis, `${nr}: Bis`) : V.datum(s.bis, `${nr}: Bis`),
       preisProNacht: zahl(s.preisProNacht, `${nr}: Preis pro Nacht`, 0, 10000),
     };
+    if (jaehrlich) r.jaehrlich = true;
     const mn = V.int(s.minNaechte, `${nr}: Mindestnächte`, 1, 60);
     if (mn) r.minNaechte = mn;
-    if (r.bis < r.von) throw new HttpError(400, `${nr} („${r.name}“): „bis“ liegt vor „von“.`);
+    if (!jaehrlich && r.bis < r.von) throw new HttpError(400, `${nr} („${r.name}“): „bis“ liegt vor „von“.`);
     return r;
-  }).sort((a, b) => a.von.localeCompare(b.von));
-  for (let i = 1; i < p.saisons.length; i++) {
-    const a = p.saisons[i - 1], b = p.saisons[i];
+  }).sort((a, b) => (!!b.jaehrlich - !!a.jaehrlich) || a.von.localeCompare(b.von));
+
+  // Überschneidungen: feste Zeiträume untereinander und jährliche untereinander.
+  // (Ein fester Zeitraum darf eine jährliche Saison überlagern – er gilt dann vorrangig.)
+  const fest = p.saisons.filter(s => !s.jaehrlich);
+  for (let i = 1; i < fest.length; i++) {
+    const a = fest[i - 1], b = fest[i];
     if (b.von <= a.bis)
-      throw new HttpError(400, `Saisons überschneiden sich: „${a.name}“ (${deDatum(a.von)}–${deDatum(a.bis)}) und „${b.name}“ (${deDatum(b.von)}–${deDatum(b.bis)}).`);
+      throw new HttpError(400, `Zeiträume überschneiden sich: „${a.name}“ (${deDatum(a.von)}–${deDatum(a.bis)}) und „${b.name}“ (${deDatum(b.von)}–${deDatum(b.bis)}).`);
+  }
+  const abschnitte = s => (s.von <= s.bis ? [[s.von, s.bis]] : [[s.von, "12-31"], ["01-01", s.bis]]);
+  const jahr = p.saisons.filter(s => s.jaehrlich);
+  for (let i = 0; i < jahr.length; i++) for (let j = i + 1; j < jahr.length; j++) {
+    const ueber = abschnitte(jahr[i]).some(([a1, a2]) => abschnitte(jahr[j]).some(([b1, b2]) => a1 <= b2 && b1 <= a2));
+    if (ueber) throw new HttpError(400, `Jährliche Saisons überschneiden sich: „${jahr[i].name}“ und „${jahr[j].name}“.`);
   }
   return p;
 }
@@ -414,6 +431,13 @@ const V = {
     if (typeof v !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(v)) throw new HttpError(400, `${feld}: Datum im Format JJJJ-MM-TT erwartet.`);
     const d = new Date(v + "T00:00:00Z");
     if (isNaN(d) || d.toISOString().slice(0, 10) !== v) throw new HttpError(400, `${feld}: ungültiges Datum.`);
+    return v;
+  },
+  monatTag(v, feld) {   // "MM-TT" für jährlich wiederkehrende Saisons (29.02. erlaubt)
+    const m = typeof v === "string" && v.match(/^(\d{2})-(\d{2})$/);
+    if (!m) throw new HttpError(400, `${feld}: Tag und Monat im Format MM-TT erwartet.`);
+    const mon = Number(m[1]), tag = Number(m[2]);
+    if (mon < 1 || mon > 12 || tag < 1 || tag > new Date(Date.UTC(2024, mon, 0)).getUTCDate()) throw new HttpError(400, `${feld}: ungültiger Tag/Monat.`);
     return v;
   },
   text(v, feld, max, pflicht = false) {
