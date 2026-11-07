@@ -134,6 +134,10 @@
       "info.tripsT": "Ausflüge",
       "info.tripsD": "Nationalparks Krka, Plitvicer Seen, Kornaten und Paklenica, Kitesurfen in Nin, Rafting auf der Zrmanja, Abenteuerpark bei Zadar – Tipps gibt es an der Rezeption.",
       "cal.priceNote": "Preis pro Nacht",
+      "gal.cat.strand": "Strand & Umgebung",
+      "gal.strand-soline": "Sonnenuntergang am Strand Soline, Privlaka",
+      "gal.strand-sabunike": "Sandstrand Sabunike bei Privlaka",
+      "gal.strand-abendrot": "Abendrot am Sandstrand von Privlaka",
 
       "season.Hauptsaison": "Hauptsaison", "season.Nebensaison": "Nebensaison",
       "season.Nachsaison": "Nachsaison", "season.Vorsaison": "Vorsaison",
@@ -257,6 +261,10 @@
       "info.tripsT": "Excursions",
       "info.tripsD": "Krka, Plitvice Lakes, Kornati and Paklenica national parks, kitesurfing in Nin, rafting on the Zrmanja, adventure park near Zadar – ask at reception for tips.",
       "cal.priceNote": "price per night",
+      "gal.cat.strand": "Beach & surroundings",
+      "gal.strand-soline": "Sunset at Soline beach, Privlaka",
+      "gal.strand-sabunike": "Sabunike sandy beach near Privlaka",
+      "gal.strand-abendrot": "Evening glow at Privlaka's sandy beach",
 
       "season.Hauptsaison": "high season", "season.Nebensaison": "low season",
       "season.Nachsaison": "late season", "season.Vorsaison": "early season",
@@ -380,6 +388,10 @@
       "info.tripsT": "Izleti",
       "info.tripsD": "Nacionalni parkovi Krka, Plitvička jezera, Kornati i Paklenica, kitesurfing u Ninu, rafting na Zrmanji, avanturistički park kod Zadra – savjete dobiješ na recepciji.",
       "cal.priceNote": "cijena po noći",
+      "gal.cat.strand": "Plaža i okolica",
+      "gal.strand-soline": "Zalazak sunca na plaži Soline, Privlaka",
+      "gal.strand-sabunike": "Pješčana plaža Sabunike kod Privlake",
+      "gal.strand-abendrot": "Večernje rumenilo na pješčanoj plaži u Privlaci",
 
       "season.Hauptsaison": "glavna sezona", "season.Nebensaison": "niska sezona",
       "season.Nachsaison": "posezona", "season.Vorsaison": "predsezona",
@@ -503,6 +515,10 @@
       "info.tripsT": "Izleti",
       "info.tripsD": "Narodni parki Krka, Plitvička jezera, Kornati in Paklenica, kajtanje v Ninu, rafting na Zrmanji, pustolovski park pri Zadru – nasvete dobiš na recepciji.",
       "cal.priceNote": "cena na noč",
+      "gal.cat.strand": "Plaža in okolica",
+      "gal.strand-soline": "Sončni zahod na plaži Soline, Privlaka",
+      "gal.strand-sabunike": "Peščena plaža Sabunike pri Privlaki",
+      "gal.strand-abendrot": "Večerna zarja na peščeni plaži v Privlaki",
 
       "season.Hauptsaison": "glavna sezona", "season.Nebensaison": "nizka sezona",
       "season.Nachsaison": "posezona", "season.Vorsaison": "predsezona",
@@ -552,10 +568,11 @@
 
   function anwenden(root) {
     root = root || document;
-    root.querySelectorAll("[data-i18n]").forEach(el => { el.textContent = t(el.dataset.i18n); });
-    root.querySelectorAll("[data-i18n-html]").forEach(el => { el.innerHTML = t(el.dataset.i18nHtml); });
+    // Fehlt eine Übersetzung (t liefert dann den Schlüssel zurück), bleibt der vorhandene Text stehen
+    root.querySelectorAll("[data-i18n]").forEach(el => { const v = t(el.dataset.i18n); if (v !== el.dataset.i18n) el.textContent = v; });
+    root.querySelectorAll("[data-i18n-html]").forEach(el => { const v = t(el.dataset.i18nHtml); if (v !== el.dataset.i18nHtml) el.innerHTML = v; });
     root.querySelectorAll("[data-i18n-attr]").forEach(el => {
-      el.dataset.i18nAttr.split(",").forEach(p => { const [a, k] = p.split(":").map(x => x.trim()); el.setAttribute(a, t(k)); });
+      el.dataset.i18nAttr.split(",").forEach(p => { const [a, k] = p.split(":").map(x => x.trim()); const v = t(k); if (v !== k) el.setAttribute(a, v); });
     });
     document.documentElement.lang = lang;
   }

@@ -28,10 +28,10 @@
 <meta property="og:image:height" content="800">
 
 <!-- Alles lokal eingebunden: keine Verbindung zu Google Fonts oder CDNs -->
-<link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="assets/style.css?v=__VERSION__">
 <link rel="preload" href="assets/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" as="image" href="images/fotos/hero-1200.jpg" imagesrcset="images/fotos/hero-1200.jpg 1200w, images/fotos/hero-2000.jpg 2000w" imagesizes="(max-width:1120px) 100vw, 1080px">
-<script src="assets/i18n.js"></script>
+<script src="assets/i18n.js?v=__VERSION__"></script>
 </head>
 <body>
 
@@ -356,7 +356,7 @@
 </dialog>
 
 <!-- Einstellungen (Stammdaten, Kontakt, API-Adresse) -->
-<script src="einstellungen.js"></script>
+<script src="einstellungen.js?v=__VERSION__"></script>
 
 <script>
 /* ============================================================
@@ -463,11 +463,19 @@
     { id: "schlafcouch",       kat: "wohnen",   quer: true },
     { id: "bad",               kat: "schlafen" },
     { id: "parkplatz",         kat: "aussen" },
+    // Strände in Privlaka – freie Fotos von Wikimedia Commons (Namensnennung Pflicht, siehe Impressum)
+    { id: "strand-soline",     kat: "strand",   quer: true, h: 436,
+      credit: { autor: "Fred Romero", lizenz: "CC BY 2.0", lizenzUrl: "https://creativecommons.org/licenses/by/2.0/", quelle: "https://commons.wikimedia.org/wiki/File:Privlaka_(48903841952).jpg" } },
+    { id: "strand-sabunike",   kat: "strand",   quer: true,
+      credit: { autor: "Fred Romero", lizenz: "CC BY 2.0", lizenzUrl: "https://creativecommons.org/licenses/by/2.0/", quelle: "https://commons.wikimedia.org/wiki/File:Sabunike_(48914146757).jpg" } },
+    { id: "strand-abendrot",   kat: "strand",   panorama: true, h: 450,
+      credit: { autor: "Magdalena Miočev", lizenz: "CC BY-SA 4.0", lizenzUrl: "https://creativecommons.org/licenses/by-sa/4.0/", quelle: "https://commons.wikimedia.org/wiki/File:Sunset_at_the_sandy_beach_in_Privlaka,Zadar_county.jpg" } },
   ];
-  const KATS = ["alle", "aussen", "terrasse", "wohnen", "schlafen"];
+  const KATS = ["alle", "aussen", "terrasse", "wohnen", "schlafen", "strand"];
   const bild = (f, g) => `images/fotos/${f.id}-${g}.jpg`;
   let kat = "alle";
   const sichtbar = () => FOTOS.filter(f => kat === "alle" || f.kat === kat);
+  const creditText = c => "Foto: " + c.autor + " · " + c.lizenz;
 
   function renderGalerie(){
     $("gal-filter").innerHTML = KATS.map(k => {
@@ -476,11 +484,12 @@
     }).join("");
     $("gal-grid").innerHTML = sichtbar().filter(f => !f.nurGross).map(f => {
       const cap = t("gal." + f.id);
-      return `<button type="button" class="gal-item${f.quer ? " quer" : ""}" data-id="${f.id}" aria-label="${t("gal.open", { c: cap })}">
-        <img src="${bild(f, 800)}" srcset="${bild(f, 800)} 800w, ${bild(f, 1600)} ${f.quer ? 1600 : 1200}w"
-             sizes="${f.quer ? "(max-width:900px) 100vw, 540px" : "(max-width:900px) 50vw, 270px"}"
-             width="800" height="${f.quer ? 533 : 1066}" loading="lazy" decoding="async" alt="${cap}">
-        <span class="cap">${cap}</span></button>`;
+      const breit = f.quer || f.panorama;
+      return `<button type="button" class="gal-item${f.quer ? " quer" : ""}${f.panorama ? " panorama" : ""}" data-id="${f.id}" aria-label="${t("gal.open", { c: cap })}">
+        <img src="${bild(f, 800)}" srcset="${bild(f, 800)} 800w, ${bild(f, 1600)} ${breit ? 1600 : 1200}w"
+             sizes="${f.panorama ? "(max-width:1120px) 100vw, 1080px" : breit ? "(max-width:900px) 100vw, 540px" : "(max-width:900px) 50vw, 270px"}"
+             width="800" height="${f.h || (breit ? 533 : 1066)}" loading="lazy" decoding="async" alt="${cap}">
+        <span class="cap">${cap}</span>${f.credit ? `<span class="credit">${creditText(f.credit)}</span>` : ""}</button>`;
     }).join("");
   }
   $("gal-filter").addEventListener("click", e => { const b = e.target.closest("[data-kat]"); if (!b) return; kat = b.dataset.kat; renderGalerie(); });
@@ -493,7 +502,16 @@
     const f = lbListe[lbI];
     lbImg.src = bild(f, 1600);
     lbImg.alt = t("gal." + f.id);
-    $("lb-cap").textContent = t("gal." + f.id);
+    const cap = $("lb-cap");
+    cap.textContent = t("gal." + f.id);
+    if (f.credit) {   // Namensnennung mit Links zu Quelle und Lizenz
+      const c = document.createElement("small");
+      c.className = "lb-credit";
+      const quelle = document.createElement("a"); quelle.href = f.credit.quelle; quelle.target = "_blank"; quelle.rel = "noopener"; quelle.textContent = "Foto: " + f.credit.autor;
+      const lizenz = document.createElement("a"); lizenz.href = f.credit.lizenzUrl; lizenz.target = "_blank"; lizenz.rel = "noopener"; lizenz.textContent = f.credit.lizenz;
+      c.append(quelle, " · ", lizenz, " · Wikimedia Commons");
+      cap.append(c);
+    }
     $("lb-count").textContent = (lbI + 1) + " / " + lbListe.length;
     // nächstes Bild vorladen
     const n = lbListe[(lbI + 1) % lbListe.length]; if (n) new Image().src = bild(n, 1600);
