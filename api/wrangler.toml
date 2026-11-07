@@ -32,6 +32,7 @@ crons = ["0 3 * * *"]
 # Von welchen Seiten darf die API aufgerufen werden? (kommagetrennt, ohne Pfad)
 ALLOWED_ORIGINS = "https://mobile-home-privlaka.com,https://www.mobile-home-privlaka.com,http://localhost:8787,http://localhost:8080"
 VERSION = "dev"   # wird beim Ausspielen durch die Commit-Kennung ersetzt
+HTTPS_UMLEITUNG = "1"   # http → https (lokal in .dev.vars auf 0)
 # Link zur Verwaltungsseite (für Benachrichtigungs-Mails)
 ADMIN_URL = "https://mobile-home-privlaka.com/admin/"
 ZEITZONE = "Europe/Zagreb"
@@ -46,7 +47,12 @@ ANONYMISIEREN_NACH_TAGEN = "365"
 WEBSITE_URL = "https://mobile-home-privlaka.com"
 MAIL_ABSENDER_NAME = "Mobile Home Adria"
 MAIL_ABSENDER_ADRESSE = "anfrage@mobile-home-privlaka.com"
-MAIL_ANTWORT_AN = "jadraleno@web.de"   # Antworten der Gäste landen hier
+# Antwortadresse aller automatischen Mails: wird NICHT gelesen – der Worker antwortet automatisch mit einem
+# Hinweis (Cloudflare → E-Mail → Email Routing: Regel „noreply“ → Worker mobile-home-api)
+MAIL_ANTWORT_AN = "noreply@mobile-home-privlaka.com"
+# Kontakt, der in automatischen Mails und in der No-Reply-Antwort genannt wird
+KONTAKT_EMAIL = "jadraleno@web.de"
+KONTAKT_TELEFON = "+49 176 66672965"
 
 # Geheimnisse NICHT hier eintragen, sondern per "npx wrangler secret put NAME":
 #   SESSION_SECRET   (Pflicht)  zufälliger Schlüssel zum Signieren der Logins

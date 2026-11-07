@@ -29,8 +29,8 @@ export default {
     const url = new URL(request.url);
     const istApi = url.pathname === "/api" || url.pathname.startsWith("/api/");
 
-    // http → https (außer beim lokalen Testen)
-    if (url.protocol === "http:" && url.hostname !== "localhost" && url.hostname !== "127.0.0.1") {
+    // http → https (lokal per .dev.vars HTTPS_UMLEITUNG=0 abgeschaltet)
+    if (url.protocol === "http:" && env.HTTPS_UMLEITUNG !== "0") {
       url.protocol = "https:";
       return Response.redirect(url.toString(), 301);
     }
@@ -47,6 +47,10 @@ export default {
   },
   async scheduled(event, env, ctx) {
     ctx.waitUntil(Promise.allSettled([aufraeumen(env), mailPruefen(env)]));
+  },
+  // Eingehende Mails an noreply@… (Cloudflare Email Routing → Worker): automatische Hinweis-Antwort
+  async email(message, env, ctx) {
+    await noreplyEmpfang(message, env);
   },
 };
 
@@ -365,7 +369,13 @@ async function aendern(req, env, user, id) {
       throw new HttpError(409, "Der Eintrag wurde gerade von jemand anderem geändert. Bitte neu laden.", { veraltet: true });
     await konfliktFehler(env, f.von, f.bis, id);
   }
-  return json({ buchung: await eintrag(env, id) });
+  // Abgelehnt → Gast bekommt automatisch eine Absage (abschaltbar mit absage_mail: false)
+  let absage = null;
+  if (f.status === "abgelehnt" && alt.status !== "abgelehnt" && d.absage_mail !== false) {
+    try { absage = await absageSenden(env, { id, von: f.von, bis: f.bis, name: f.name, email: f.email, sprache: alt.sprache }); }
+    catch (e) { console.error("Absage:", e); absage = "fehler"; }
+  }
+  return json({ buchung: await eintrag(env, id), absage });
 }
 
 async function loeschen(env, id) {
@@ -576,89 +586,161 @@ const htmlEsc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "
 const sichererVorname = n => { const v = String(n || "").trim().split(/\s+/)[0].slice(0, 30); return /[/:@<>\\]|www|http|\.\w{2,}/i.test(v) ? "" : v; };
 
 const LOCALE = { de: "de-DE", en: "en-GB", hr: "hr-HR", sl: "sl-SI" };
-const EINGANG = {
+
+// Texte für alle automatischen Gäste-Mails (DE/EN/HR/SL)
+const MAILTEXT = {
   de: {
-    betreff: h => `Deine Anfrage ist angekommen – ${h}`,
-    hallo: n => `Hallo${n ? " " + n : ""},`,
-    intro: "vielen Dank für deine Anfrage! Sie ist bei uns angekommen:",
+    hallo: n => `Hallo${n ? " " + n : ""},`, gruss: "Viele Grüße",
     felder: ["Anreise", "Abreise", "Nächte", "Personen", "Preis (ca.)"], inkl: "inkl. Endreinigung",
-    weiter: "Die Anfrage ist unverbindlich. Wir prüfen die Verfügbarkeit und melden uns innerhalb von 24 Stunden mit einer Bestätigung oder Rückfrage.",
-    fragen: "Fragen? Antworte einfach auf diese E-Mail.", gruss: "Viele Grüße",
-    fuss: w => `Diese E-Mail wurde automatisch verschickt, weil auf ${w} eine Anfrage mit dieser Adresse gestellt wurde. Falls du das nicht warst, kannst du sie ignorieren.`,
+    noreply: (m, t) => `Dies ist eine automatisch versendete E-Mail – bitte nicht darauf antworten, Antworten werden nicht gelesen. Bei Fragen erreichst du uns unter ${m}${t ? " oder " + t : ""}.`,
+    eingang: {
+      betreff: h => `Deine Anfrage ist angekommen – ${h}`,
+      intro: "vielen Dank für deine Anfrage! Sie ist bei uns angekommen:",
+      weiter: "Die Anfrage ist unverbindlich. Wir prüfen die Verfügbarkeit und melden uns innerhalb von 24 Stunden mit einer Bestätigung oder Rückfrage.",
+      fuss: w => `Diese E-Mail wurde verschickt, weil auf ${w} eine Anfrage mit dieser Adresse gestellt wurde. Falls du das nicht warst, kannst du sie ignorieren.`,
+    },
+    absage: {
+      betreff: (h, z) => `Deine Anfrage ${z} – ${h}`,
+      intro: z => `vielen Dank für deine Anfrage für unser Mobile Home im Zeitraum ${z}. Leider ist das Mobile Home in diesem Zeitraum nicht verfügbar, deshalb können wir dir keine Zusage geben.`,
+      weiter: "Vielleicht passt ein anderer Termin? Die freien Zeiträume siehst du hier:", knopf: "Freie Termine ansehen",
+    },
   },
   en: {
-    betreff: h => `We've received your enquiry – ${h}`,
-    hallo: n => `Hello${n ? " " + n : ""},`,
-    intro: "Thank you for your enquiry! We have received it:",
+    hallo: n => `Hello${n ? " " + n : ""},`, gruss: "Best regards",
     felder: ["Arrival", "Departure", "Nights", "Guests", "Price (approx.)"], inkl: "incl. final cleaning",
-    weiter: "Your enquiry is non-binding. We'll check availability and get back to you within 24 hours with a confirmation or a question.",
-    fragen: "Questions? Simply reply to this email.", gruss: "Best regards",
-    fuss: w => `This email was sent automatically because an enquiry was made on ${w} using this address. If this wasn't you, you can ignore it.`,
+    noreply: (m, t) => `This is an automated email – please do not reply, replies are not read. If you have any questions, contact us at ${m}${t ? " or " + t : ""}.`,
+    eingang: {
+      betreff: h => `We've received your enquiry – ${h}`,
+      intro: "Thank you for your enquiry! We have received it:",
+      weiter: "Your enquiry is non-binding. We'll check availability and get back to you within 24 hours with a confirmation or a question.",
+      fuss: w => `This email was sent because an enquiry was made on ${w} using this address. If this wasn't you, you can ignore it.`,
+    },
+    absage: {
+      betreff: (h, z) => `Your enquiry ${z} – ${h}`,
+      intro: z => `Thank you for your enquiry for our mobile home for ${z}. Unfortunately, the mobile home is not available during this period, so we cannot confirm your stay.`,
+      weiter: "Perhaps another date would suit you? You can see the available dates here:", knopf: "See available dates",
+    },
   },
   hr: {
-    betreff: h => `Zaprimili smo tvoj upit – ${h}`,
-    hallo: n => `Pozdrav${n ? " " + n : ""},`,
-    intro: "hvala na upitu! Zaprimili smo ga:",
+    hallo: n => `Pozdrav${n ? " " + n : ""},`, gruss: "Srdačan pozdrav",
     felder: ["Dolazak", "Odlazak", "Noći", "Osobe", "Cijena (otprilike)"], inkl: "uključujući završno čišćenje",
-    weiter: "Upit je neobvezujući. Provjerit ćemo dostupnost i javiti ti se u roku od 24 sata s potvrdom ili pitanjem.",
-    fragen: "Pitanja? Jednostavno odgovori na ovu e-poruku.", gruss: "Srdačan pozdrav",
-    fuss: w => `Ova je e-poruka poslana automatski jer je na ${w} poslan upit s ovom adresom. Ako to nisi bio/bila ti, slobodno je zanemari.`,
+    noreply: (m, t) => `Ovo je automatski poslana e-poruka – molimo ne odgovaraj na nju, odgovori se ne čitaju. Za pitanja nam se javi na ${m}${t ? " ili " + t : ""}.`,
+    eingang: {
+      betreff: h => `Zaprimili smo tvoj upit – ${h}`,
+      intro: "hvala na upitu! Zaprimili smo ga:",
+      weiter: "Upit je neobvezujući. Provjerit ćemo dostupnost i javiti ti se u roku od 24 sata s potvrdom ili pitanjem.",
+      fuss: w => `Ova je e-poruka poslana jer je na ${w} poslan upit s ovom adresom. Ako to nisi bio/bila ti, slobodno je zanemari.`,
+    },
+    absage: {
+      betreff: (h, z) => `Tvoj upit ${z} – ${h}`,
+      intro: z => `hvala na upitu za našu mobilnu kućicu u terminu ${z}. Nažalost, mobilna kućica u tom terminu nije slobodna pa ti ne možemo potvrditi boravak.`,
+      weiter: "Možda ti odgovara neki drugi termin? Slobodne termine možeš pogledati ovdje:", knopf: "Pogledaj slobodne termine",
+    },
   },
   sl: {
-    betreff: h => `Prejeli smo tvoje povpraševanje – ${h}`,
-    hallo: n => `Dober dan${n ? ", " + n : ""},`,
-    intro: "hvala za povpraševanje! Prejeli smo ga:",
+    hallo: n => `Dober dan${n ? ", " + n : ""},`, gruss: "Lep pozdrav",
     felder: ["Prihod", "Odhod", "Noči", "Osebe", "Cena (približno)"], inkl: "vključno s končnim čiščenjem",
-    weiter: "Povpraševanje je nezavezujoče. Preverili bomo razpoložljivost in se ti v 24 urah oglasili s potrditvijo ali vprašanjem.",
-    fragen: "Vprašanja? Preprosto odgovori na to e-pošto.", gruss: "Lep pozdrav",
-    fuss: w => `To e-sporočilo je bilo poslano samodejno, ker je bilo na ${w} poslano povpraševanje s tem naslovom. Če to nisi bil/a ti, ga lahko prezreš.`,
+    noreply: (m, t) => `To je samodejno poslano e-sporočilo – prosimo, ne odgovarjaj nanj, odgovorov ne beremo. Za vprašanja nam piši na ${m}${t ? " ali pokliči " + t : ""}.`,
+    eingang: {
+      betreff: h => `Prejeli smo tvoje povpraševanje – ${h}`,
+      intro: "hvala za povpraševanje! Prejeli smo ga:",
+      weiter: "Povpraševanje je nezavezujoče. Preverili bomo razpoložljivost in se ti v 24 urah oglasili s potrditvijo ali vprašanjem.",
+      fuss: w => `To e-sporočilo je bilo poslano, ker je bilo na ${w} poslano povpraševanje s tem naslovom. Če to nisi bil/a ti, ga lahko prezreš.`,
+    },
+    absage: {
+      betreff: (h, z) => `Tvoje povpraševanje ${z} – ${h}`,
+      intro: z => `hvala za povpraševanje za našo mobilno hišico v terminu ${z}. Žal mobilna hišica v tem terminu ni prosta, zato ti bivanja ne moremo potrditi.`,
+      weiter: "Morda ti ustreza kakšen drug termin? Proste termine si lahko ogledaš tukaj:", knopf: "Oglej si proste termine",
+    },
   },
 };
 
-// Automatische Eingangsbestätigung an den Gast (in seiner Sprache)
-async function eingangBestaetigen(env, a) {
-  if (!mailAktiv(env) || !a.email) return;
-  // Schutz gegen Missbrauch des öffentlichen Formulars: höchstens 40 automatische Gäste-Mails pro Tag
-  const tagSchluessel = "mail:gast";
-  const n = await env.DB.prepare("SELECT COUNT(*) AS n FROM rate_limit WHERE schluessel = ? AND zeit > ?").bind(tagSchluessel, Date.now() - 86400000).first();
-  if (n.n >= 40) { console.error("Tageslimit Eingangsbestätigungen erreicht"); return; }
-
-  const l = EINGANG[a.sprache] ? a.sprache : "de", T = EINGANG[l], loc = LOCALE[l];
-  const haus = env.MAIL_ABSENDER_NAME || "Mobile Home";
-  const web = (env.WEBSITE_URL || "").replace(/\/+$/, "");
-  const webSprache = web ? `${web}/?lang=${l}` : "";
-  const datum = s => new Date(s + "T12:00:00Z").toLocaleDateString(loc, { weekday: "short", day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
-  const preis = a.preis_web != null ? new Intl.NumberFormat(loc, { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(a.preis_web) + " " + T.inkl : "";
-  const zeilen = [[T.felder[0], datum(a.von)], [T.felder[1], datum(a.bis)], [T.felder[2], naechte(a.von, a.bis)], [T.felder[3], a.personen]];
-  if (preis) zeilen.push([T.felder[4], preis]);
-  const vorname = sichererVorname(a.name);
-  const breite = Math.max(...zeilen.map(z => z[0].length)) + 2;
-
+// Gemeinsamer Aufbau aller automatischen Mails (Text + HTML) mit No-Reply-Hinweis
+function mailBauen({ lang, haus, hallo, absaetze = [], zeilen = [], nach = [], knopf = null, gruss, link = "", hinweis, fuss = "" }) {
+  const breite = zeilen.length ? Math.max(...zeilen.map(z => String(z[0]).length)) + 2 : 0;
   const text = [
-    T.hallo(vorname), "", T.intro, "",
-    ...zeilen.map(([k, v]) => (k + ":").padEnd(breite) + v), "",
-    T.weiter, "", T.fragen, "", T.gruss, haus, webSprache, "", "—", T.fuss(web || haus),
+    hallo, "",
+    ...absaetze.flatMap(a => [a, ""]),
+    ...(zeilen.length ? [...zeilen.map(([k, v]) => (k + ":").padEnd(breite) + v), ""] : []),
+    ...nach.flatMap(a => [a, ""]),
+    ...(knopf ? [knopf.url, ""] : []),
+    gruss, haus, ...(link ? [link] : []), "",
+    "—", hinweis, ...(fuss ? ["", fuss] : []),
   ].join("\n");
-  const html = `<!doctype html><html lang="${l}"><body style="margin:0;background:#f4f6f7;font-family:Arial,Helvetica,sans-serif;color:#0c1a20">
+  const p = t => `<p style="margin:0 0 14px;font-size:15px;line-height:1.5">${htmlEsc(t)}</p>`;
+  const html = `<!doctype html><html lang="${lang}"><body style="margin:0;background:#f4f6f7;font-family:Arial,Helvetica,sans-serif;color:#0c1a20">
 <div style="max-width:560px;margin:0 auto;padding:24px 16px">
 <div style="background:#ffffff;border:1px solid #e4e9eb;border-radius:12px;padding:24px">
 <p style="margin:0 0 6px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#0e5e73;font-weight:bold">${htmlEsc(haus)}</p>
-<p style="margin:0 0 16px;font-size:16px">${htmlEsc(T.hallo(vorname))}</p>
-<p style="margin:0 0 14px;font-size:15px;line-height:1.5">${htmlEsc(T.intro)}</p>
-<table style="border-collapse:collapse;width:100%;font-size:15px;margin:0 0 16px">${zeilen.map(([k, v]) =>
-  `<tr><td style="padding:7px 0;color:#5b6b72;border-bottom:1px solid #eef1f2;width:42%">${htmlEsc(k)}</td><td style="padding:7px 0;border-bottom:1px solid #eef1f2;font-weight:bold">${htmlEsc(v)}</td></tr>`).join("")}</table>
-<p style="margin:0 0 12px;font-size:15px;line-height:1.5">${htmlEsc(T.weiter)}</p>
-<p style="margin:0 0 18px;font-size:15px;line-height:1.5">${htmlEsc(T.fragen)}</p>
-<p style="margin:0;font-size:15px">${htmlEsc(T.gruss)}<br><b>${htmlEsc(haus)}</b>${webSprache ? `<br><a href="${htmlEsc(webSprache)}" style="color:#0e5e73">${htmlEsc(web.replace(/^https?:\/\//, ""))}</a>` : ""}</p>
+${hallo ? `<p style="margin:0 0 16px;font-size:16px">${htmlEsc(hallo)}</p>` : ""}
+${absaetze.map(p).join("\n")}
+${zeilen.length ? `<table style="border-collapse:collapse;width:100%;font-size:15px;margin:0 0 16px">${zeilen.map(([k, v]) =>
+  `<tr><td style="padding:7px 0;color:#5b6b72;border-bottom:1px solid #eef1f2;width:42%">${htmlEsc(k)}</td><td style="padding:7px 0;border-bottom:1px solid #eef1f2;font-weight:bold">${htmlEsc(v)}</td></tr>`).join("")}</table>` : ""}
+${nach.map(p).join("\n")}
+${knopf ? `<p style="margin:4px 0 20px"><a href="${htmlEsc(knopf.url)}" style="display:inline-block;background:#0e5e73;color:#fff;text-decoration:none;font-weight:bold;padding:12px 20px;border-radius:9px">${htmlEsc(knopf.text)}</a></p>` : ""}
+<p style="margin:0;font-size:15px">${htmlEsc(gruss)}<br><b>${htmlEsc(haus)}</b>${link ? `<br><a href="${htmlEsc(link)}" style="color:#0e5e73">${htmlEsc(link.replace(/^https?:\/\//, "").replace(/\/?\?.*$/, ""))}</a>` : ""}</p>
 </div>
-<p style="margin:14px 4px 0;font-size:12px;line-height:1.5;color:#5b6b72">${htmlEsc(T.fuss(web.replace(/^https?:\/\//, "") || haus))}</p>
+<p style="margin:14px 4px 0;font-size:12px;line-height:1.5;color:#5b6b72"><b>${htmlEsc(hinweis)}</b>${fuss ? "<br>" + htmlEsc(fuss) : ""}</p>
 </div></body></html>`;
+  return { text, html };
+}
 
-  const ok = await mailSenden(env, { an: a.email, betreff: T.betreff(haus), text, html, antwortAn: env.MAIL_ANTWORT_AN });
+// Gemeinsame Werte für Gäste-Mails
+function gastWerte(env, a) {
+  const l = MAILTEXT[a.sprache] ? a.sprache : "de", T = MAILTEXT[l], loc = LOCALE[l];
+  const web = (env.WEBSITE_URL || "").replace(/\/+$/, "");
+  const lang = s => new Date(s + "T12:00:00Z").toLocaleDateString(loc, { weekday: "short", day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
+  const kurz = s => new Date(s + "T12:00:00Z").toLocaleDateString(loc, { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
+  return {
+    l, T, loc, web, haus: env.MAIL_ABSENDER_NAME || "Mobile Home",
+    link: web ? `${web}/?lang=${l}` : "", zeitraum: `${kurz(a.von)} – ${kurz(a.bis)}`, lang,
+    vorname: sichererVorname(a.name),
+    hinweis: T.noreply(env.KONTAKT_EMAIL || env.MAIL_ABSENDER_ADRESSE || "", env.KONTAKT_TELEFON || ""),
+  };
+}
+
+// Schutz gegen Missbrauch: höchstens 40 automatische Gäste-Mails pro Tag
+async function gastLimitOk(env) {
+  const n = await env.DB.prepare("SELECT COUNT(*) AS n FROM rate_limit WHERE schluessel = 'mail:gast' AND zeit > ?").bind(Date.now() - 86400000).first();
+  if (n.n >= 40) { console.error("Tageslimit Gäste-Mails erreicht"); return false; }
+  return true;
+}
+
+// Automatische Eingangsbestätigung an den Gast (in seiner Sprache)
+async function eingangBestaetigen(env, a) {
+  if (!mailAktiv(env) || !a.email || !(await gastLimitOk(env))) return;
+  const w = gastWerte(env, a), T = w.T;
+  const preis = a.preis_web != null ? new Intl.NumberFormat(w.loc, { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(a.preis_web) + " " + T.inkl : "";
+  const zeilen = [[T.felder[0], w.lang(a.von)], [T.felder[1], w.lang(a.bis)], [T.felder[2], naechte(a.von, a.bis)], [T.felder[3], a.personen]];
+  if (preis) zeilen.push([T.felder[4], preis]);
+  const { text, html } = mailBauen({
+    lang: w.l, haus: w.haus, hallo: T.hallo(w.vorname), absaetze: [T.eingang.intro], zeilen, nach: [T.eingang.weiter],
+    gruss: T.gruss, link: w.link, hinweis: w.hinweis, fuss: T.eingang.fuss(w.web.replace(/^https?:\/\//, "") || w.haus),
+  });
+  const ok = await mailSenden(env, { an: a.email, betreff: T.eingang.betreff(w.haus), text, html, antwortAn: env.MAIL_ANTWORT_AN });
   if (ok) {
-    await limitZaehlen(env, tagSchluessel);
+    await limitZaehlen(env, "mail:gast");
     await env.DB.prepare("UPDATE buchungen SET eingang_mail_am = ? WHERE id = ?").bind(new Date().toISOString(), a.id).run();
   }
+}
+
+// Automatische Absage an den Gast, wenn die Anfrage in der Verwaltung abgelehnt wird
+// Rückgabe: "gesendet" | "nicht_eingerichtet" | "keine_adresse" | "limit" | "fehler"
+async function absageSenden(env, a) {
+  if (!a.email) return "keine_adresse";
+  if (!mailAktiv(env)) return "nicht_eingerichtet";
+  if (!(await gastLimitOk(env))) return "limit";
+  const w = gastWerte(env, a), T = w.T;
+  const { text, html } = mailBauen({
+    lang: w.l, haus: w.haus, hallo: T.hallo(w.vorname), absaetze: [T.absage.intro(w.zeitraum), T.absage.weiter],
+    knopf: w.link ? { text: T.absage.knopf, url: w.link + "#verfuegbarkeit" } : null,
+    gruss: T.gruss, link: w.link, hinweis: w.hinweis,
+  });
+  const ok = await mailSenden(env, { an: a.email, betreff: T.absage.betreff(w.haus, w.zeitraum), text, html, antwortAn: env.MAIL_ANTWORT_AN });
+  if (!ok) return "fehler";
+  await limitZaehlen(env, "mail:gast");
+  await env.DB.prepare("UPDATE buchungen SET absage_gesendet_am = ? WHERE id = ?").bind(new Date().toISOString(), a.id).run();
+  return "gesendet";
 }
 
 // Benachrichtigung an die Verwaltung (NOTIFY_TO) – bewusst ohne Name/Kontaktdaten des Gastes
@@ -670,18 +752,82 @@ async function benachrichtigen(env, a) {
   const sprachen = { de: "Deutsch", en: "Englisch", hr: "Kroatisch", sl: "Slowenisch" };
   const preis = a.preis_web != null ? `${a.preis_web} € (inkl. Endreinigung)` : "–";
   const admin = env.ADMIN_URL || "";
-  const zeilen = [["Zeitraum", zeitraum], ["Nächte", n], ["Personen", a.personen], ["Preis (berechnet)", preis], ["Sprache", sprachen[a.sprache] || a.sprache]];
-  const text = `Neue Buchungsanfrage über die Website\n\n${zeilen.map(([k, v]) => (k + ":").padEnd(19) + v).join("\n")}\n\n` +
-    `Anfrage ansehen und bestätigen:\n${admin}\n\n(Name und Kontaktdaten des Gastes stehen aus Datenschutzgründen nur in der Verwaltung.)`;
-  const html = `<!doctype html><html lang="de"><body style="margin:0;background:#f4f6f7;font-family:Arial,Helvetica,sans-serif;color:#0c1a20">
-<div style="max-width:560px;margin:0 auto;padding:24px 16px"><div style="background:#fff;border:1px solid #e4e9eb;border-radius:12px;padding:24px">
-<p style="margin:0 0 14px;font-size:18px;font-weight:bold">Neue Buchungsanfrage</p>
-<table style="border-collapse:collapse;width:100%;font-size:15px;margin:0 0 20px">${zeilen.map(([k, v]) =>
-  `<tr><td style="padding:7px 0;color:#5b6b72;border-bottom:1px solid #eef1f2;width:42%">${htmlEsc(k)}</td><td style="padding:7px 0;border-bottom:1px solid #eef1f2;font-weight:bold">${htmlEsc(v)}</td></tr>`).join("")}</table>
-${admin ? `<a href="${htmlEsc(admin)}" style="display:inline-block;background:#0e5e73;color:#fff;text-decoration:none;font-weight:bold;padding:12px 20px;border-radius:9px">In der Verwaltung öffnen</a>` : ""}
-<p style="margin:18px 0 0;font-size:12px;color:#5b6b72">Name und Kontaktdaten des Gastes stehen aus Datenschutzgründen nur in der Verwaltung.</p>
-</div></div></body></html>`;
-  await mailSenden(env, { an, betreff: `Neue Anfrage: ${zeitraum} (${n} Nächte, ${a.personen} Pers.)`, text, html });
+  const { text, html } = mailBauen({
+    lang: "de", haus: "Neue Buchungsanfrage", hallo: "",
+    zeilen: [["Zeitraum", zeitraum], ["Nächte", n], ["Personen", a.personen], ["Preis (berechnet)", preis], ["Sprache", sprachen[a.sprache] || a.sprache]],
+    knopf: admin ? { text: "In der Verwaltung öffnen", url: admin } : null,
+    gruss: "Automatische Benachrichtigung", link: "",
+    hinweis: "Automatisch versendet – bitte nicht antworten, Antworten werden nicht gelesen.",
+    fuss: "Name und Kontaktdaten des Gastes stehen aus Datenschutzgründen nur in der Verwaltung.",
+  });
+  await mailSenden(env, { an, betreff: `Neue Anfrage: ${zeitraum} (${n} Nächte, ${a.personen} Pers.)`, text, html, antwortAn: env.MAIL_ANTWORT_AN });
+}
+
+/* ---------------- E-Mail-Empfang: noreply@… beantwortet automatisch ---------------- */
+// In Cloudflare unter E-Mail → Email Routing eine Regel „noreply@… → Worker mobile-home-api“ anlegen.
+// Eingehende Mails werden NICHT gelesen, gespeichert oder weitergeleitet; der Absender bekommt eine Hinweis-Antwort.
+const NOREPLY_TEXT = (env) => {
+  const m = env.KONTAKT_EMAIL || "", t = env.KONTAKT_TELEFON || "";
+  return [
+    "Diese Adresse wird nicht gelesen (no-reply). Deine Nachricht wurde nicht zugestellt.",
+    `Bitte schreib uns an ${m}${t ? " oder ruf an: " + t : ""}.`,
+    "",
+    "This address is not monitored (no-reply). Your message has not been delivered.",
+    `Please write to ${m}${t ? " or call " + t : ""}.`,
+    "",
+    "Ova adresa se ne čita (no-reply). Tvoja poruka nije dostavljena.",
+    `Molimo piši nam na ${m}${t ? " ili nazovi " + t : ""}.`,
+    "",
+    "Ta naslov se ne bere (no-reply). Tvoje sporočilo ni bilo dostavljeno.",
+    `Prosimo, piši nam na ${m}${t ? " ali pokliči " + t : ""}.`,
+    "",
+    `— ${env.MAIL_ABSENDER_NAME || "Mobile Home"} · ${(env.WEBSITE_URL || "").replace(/^https?:\/\//, "")}`,
+  ].join("\n");
+};
+
+const b64Utf8 = s => btoa(String.fromCharCode(...enc.encode(s)));
+const mimeWort = s => `=?UTF-8?B?${b64Utf8(s)}?=`;
+
+async function noreplyEmpfang(message, env) {
+  const h = message.headers, von = message.from || "";
+  // Keine Antwort auf automatische Mails, Bounces oder Listen (verhindert Mail-Schleifen)
+  const automatisch = (h.get("auto-submitted") || "no").toLowerCase() !== "no"
+    || /bulk|junk|list/i.test(h.get("precedence") || "") || h.get("list-id") || h.get("x-autoreply") || h.get("x-autorespond")
+    || /mailer-daemon|postmaster|no-?reply|bounce/i.test(von) || !von.includes("@");
+  if (automatisch) return;   // still verwerfen
+
+  // höchstens eine Hinweis-Antwort pro Absender und Tag
+  const schl = "noreply:" + b64url(await crypto.subtle.digest("SHA-256", enc.encode(von.toLowerCase() + "|" + (env.SESSION_SECRET || "")))).slice(0, 22);
+  const n = await env.DB.prepare("SELECT COUNT(*) AS n FROM rate_limit WHERE schluessel = ? AND zeit > ?").bind(schl, Date.now() - 86400000).first();
+  if (n.n >= 1) return;
+  await limitZaehlen(env, schl);
+
+  const msgId = h.get("message-id");
+  const betreff = (h.get("subject") || "").replace(/[\r\n]+/g, " ").slice(0, 150);
+  const domain = (message.to.split("@")[1] || "mobile-home.invalid");
+  const roh = [
+    `From: ${mimeWort(env.MAIL_ABSENDER_NAME || "Mobile Home")} <${message.to}>`,
+    `To: <${von}>`,
+    `Subject: ${mimeWort("Automatische Antwort / Automatic reply" + (betreff ? ": " + betreff : ""))}`,
+    `Date: ${new Date().toUTCString()}`,
+    `Message-ID: <${crypto.randomUUID()}@${domain}>`,
+    ...(msgId ? [`In-Reply-To: ${msgId}`, `References: ${msgId}`] : []),
+    "Auto-Submitted: auto-replied",
+    "X-Auto-Response-Suppress: All",
+    "MIME-Version: 1.0",
+    "Content-Type: text/plain; charset=UTF-8",
+    "Content-Transfer-Encoding: base64",
+    "",
+    b64Utf8(NOREPLY_TEXT(env)).replace(/.{76}/g, "$&\r\n"),
+  ].join("\r\n");
+  try {
+    const { EmailMessage } = await import("cloudflare:email");
+    await message.reply(new EmailMessage(message.to, von, roh));
+  } catch (e) {
+    // Antwort nicht möglich (z. B. Absender-Prüfung fehlgeschlagen) → Zustellung mit Hinweis ablehnen (Bounce)
+    console.error("noreply-Antwort fehlgeschlagen:", String(e).slice(0, 200));
+    message.setReject("This address is not monitored (no-reply). Please contact " + (env.KONTAKT_EMAIL || "the sender via the website") + ".");
+  }
 }
 
 /* ---------------- Tägliche Bereinigung (Datenschutz) ---------------- */

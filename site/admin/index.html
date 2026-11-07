@@ -318,6 +318,8 @@ dialog::backdrop{background:rgba(12,26,32,.45)}
         <div class="field"><label for="d-tel">Telefon</label><input id="d-tel" type="tel" maxlength="50"></div>
       </div>
       <div class="field"><label for="d-msg">Nachricht des Gastes</label><textarea id="d-msg" rows="2" maxlength="2000"></textarea></div>
+      <label class="check check-warn" id="d-absage-wrap" hidden><input type="checkbox" id="d-absage" checked>
+        <span><b>Absage-Mail automatisch an den Gast senden</b> (in seiner Sprache, beim Speichern)</span></label>
       <label class="check" id="d-mail-wrap" hidden><input type="checkbox" id="d-mailgesendet">
         <span><b>Bestätigungs-Mail an den Gast gesendet</b> <span id="d-mail-am"></span></span></label>
       <div class="field"><label for="d-notiz">Interne Notiz</label><textarea id="d-notiz" rows="2" maxlength="2000" placeholder="z. B. Anzahlung erhalten am …"></textarea></div>
@@ -880,18 +882,30 @@ ${v.user}`,
   function mailAbsage(b){ const v = mailWerte(b), m = MAIL[v.l]; return mailHref(b, m.absBetreff(v), m.abs(v)); }
   const mailLinks = b => b.email ? [
     { text: "Bestätigungs-Mail" + sprachHinweis(b), href: mailBestaetigung(b) },
-    { text: "Absage-Mail" + sprachHinweis(b), href: mailAbsage(b) },
+    { text: "Absage-Mail manuell" + sprachHinweis(b), href: mailAbsage(b) },
     { text: "E-Mail schreiben", href: "mailto:" + mailAdr(b.email) },
   ] : [];
 
   /* ---------- Status schnell ändern ---------- */
+  // Rückmeldung zur automatischen Absage-Mail (Ergebnis der API)
+  function absageToast(ergebnis, b){
+    if (ergebnis === "gesendet") toast("Anfrage abgelehnt – die Absage-Mail wurde automatisch an den Gast gesendet.");
+    else if (ergebnis === "keine_adresse") toast("Anfrage abgelehnt (keine E-Mail-Adresse hinterlegt).");
+    else if (ergebnis === null || ergebnis === undefined) toast("Anfrage abgelehnt, ohne Absage-Mail.");
+    else toast("Anfrage abgelehnt – die Absage-Mail konnte NICHT automatisch gesendet werden" +
+      (ergebnis === "nicht_eingerichtet" ? " (Mailversand nicht eingerichtet)." : ergebnis === "limit" ? " (Tageslimit erreicht)." : "."),
+      b && b.email ? { text: "Absage manuell senden", href: mailAbsage(b) } : null, true);
+  }
+
   async function setzeStatus(b, status){
+    if (status === "abgelehnt" && !confirm("Anfrage " + deKurz(b.von) + " – " + deKurz(b.bis) + (b.name ? " (" + b.name + ")" : "") + " ablehnen?" +
+      (b.email ? "\n\nDer Gast bekommt automatisch eine Absage-Mail in seiner Sprache." : ""))) return false;
     try {
       const d = await api("/api/admin/buchungen/" + b.id, { method: "PATCH", body: { status, geaendert_am: b.geaendert_am } });
       await laden();
       const neu = d.buchung;
       if (status === "bestaetigt") toast(neu.email ? "Buchung bestätigt – jetzt die Bestätigungs-Mail senden." : "Buchung bestätigt.", neu.email ? { text: "Bestätigungs-Mail öffnen", href: mailBestaetigung(neu) } : null);
-      else if (status === "abgelehnt") toast("Anfrage abgelehnt.", neu.email ? { text: "Absage-Mail öffnen", href: mailAbsage(neu) } : null);
+      else if (status === "abgelehnt") absageToast(d.absage, neu);
       else toast("Gespeichert.");
     } catch (e) {
       if (e.still) return;
@@ -984,7 +998,7 @@ ${v.user}`,
     const btn = e.target.closest("[data-act]"); if (!btn) return;
     const b = daten.find(x => x.id === btn.closest("[data-id]").dataset.id); if (!b) return;
     if (btn.dataset.act === "bestaetigen") { btn.disabled = true; setzeStatus(b, "bestaetigt"); }
-    if (btn.dataset.act === "ablehnen") { btn.disabled = true; setzeStatus(b, "abgelehnt"); }
+    if (btn.dataset.act === "ablehnen") { btn.disabled = true; setzeStatus(b, "abgelehnt").then(r => { if (r === false) btn.disabled = false; }); }
     if (btn.dataset.act === "bearbeiten") oeffneDialog(b);
     if (btn.dataset.act === "mail-oeffnen") {
       // Mail-Programm öffnet sich; danach den „gesendet“-Knopf hervorheben
@@ -1107,8 +1121,10 @@ ${v.user}`,
     $("d-meta").textContent = b
       ? "Eingegangen " + deZeit(b.erstellt_am) + (b.quelle === "web" ? " über die Website" : "") +
         (b.sprache && SPRACHNAME[b.sprache] ? " (" + SPRACHNAME[b.sprache] + ")" : "") +
-        " · zuletzt geändert " + deZeit(b.geaendert_am) + (b.geaendert_von ? " von " + b.geaendert_von : "")
+        " · zuletzt geändert " + deZeit(b.geaendert_am) + (b.geaendert_von ? " von " + b.geaendert_von : "") +
+        (b.absage_gesendet_am ? " · Absage-Mail automatisch gesendet " + deZeit(b.absage_gesendet_am) : "")
       : "";
+    $("d-absage").checked = true;
     const ml = $("dlg-mail"); ml.innerHTML = "";
     (b ? mailLinks(b) : []).forEach(l => { const a = document.createElement("a"); a.className = "btn btn-outline btn-sm"; a.href = l.href; a.textContent = l.text; ml.appendChild(a); });
     ml.hidden = !ml.children.length;
@@ -1120,6 +1136,8 @@ ${v.user}`,
 
   // Merker „Bestätigungs-Mail gesendet“: nur bei bestätigten Buchungen mit E-Mail; gelb, solange nicht gesendet
   function mailMerker(){
+    // Absage-Mail: nur wenn eine bestehende Anfrage/Buchung neu auf „Abgelehnt“ gesetzt wird und eine E-Mail-Adresse hat
+    $("d-absage-wrap").hidden = !(aktuell && aktuell.status !== "abgelehnt" && $("d-status").value === "abgelehnt" && $("d-email").value.trim());
     const wrap = $("d-mail-wrap");
     wrap.hidden = !($("d-status").value === "bestaetigt" && $("d-email").value.trim());
     const ok = $("d-mailgesendet").checked;
@@ -1153,6 +1171,7 @@ ${v.user}`,
     if (!body.von || !body.bis) { err.textContent = "Bitte Anreise und Abreise angeben."; err.hidden = false; return; }
     if (aktuell) body.geaendert_am = aktuell.geaendert_am;
     if (!$("d-mail-wrap").hidden) body.bestaetigung_gesendet = $("d-mailgesendet").checked;
+    if (!$("d-absage-wrap").hidden) body.absage_mail = $("d-absage").checked;
     const btn = $("d-save"); btn.disabled = true;
     try {
       const d = aktuell
@@ -1163,7 +1182,7 @@ ${v.user}`,
       await laden();
       const neu = d.buchung;
       if (neu.status === "bestaetigt" && vorher !== "bestaetigt" && neu.email && !neu.bestaetigung_gesendet_am) toast("Gespeichert und bestätigt – jetzt die Bestätigungs-Mail senden.", { text: "Bestätigungs-Mail öffnen", href: mailBestaetigung(neu) });
-      else if (neu.status === "abgelehnt" && vorher !== "abgelehnt" && neu.email) toast("Gespeichert.", { text: "Absage-Mail öffnen", href: mailAbsage(neu) });
+      else if (neu.status === "abgelehnt" && vorher && vorher !== "abgelehnt") absageToast(d.absage, neu);
       else toast("Gespeichert.");
     } catch (ex) {
       if (ex.still) return;
