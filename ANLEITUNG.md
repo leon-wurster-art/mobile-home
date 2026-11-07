@@ -3,7 +3,7 @@
 ## Aufbau
 
 ```
-site/                  → öffentliche Website (GitHub Pages)
+site/                  → öffentliche Website (wird vom Cloudflare-Worker ausgeliefert)
   index.html           Startseite mit Kalender und Anfrageformular
   admin/index.html     Verwaltung: Anfragen bestätigen, Kalender, Sperren
   einstellungen.js     Stammdaten, Kontakt, API-Adresse
@@ -11,8 +11,8 @@ site/                  → öffentliche Website (GitHub Pages)
   images/fotos/        web-optimierte Fotos (je 800 px fürs Raster, 1600 px für die Großansicht)
   assets/i18n.js       alle Texte der Website in Deutsch, Englisch, Kroatisch, Slowenisch
 fotos-original/        Original-Kamerafotos (nur lokal, nicht im Repo)
-api/                   → API als Cloudflare Worker + D1-Datenbank
-.github/workflows/     automatisches Ausspielen von Website und API
+api/                   → Cloudflare Worker (liefert Website + API, setzt Security-Header) + D1-Datenbank
+.github/workflows/     automatisches Ausspielen zu Cloudflare (braucht CLOUDFLARE_API_TOKEN)
 ```
 
 So läuft es ab:
@@ -36,10 +36,10 @@ npm run db:init:remote                    # Tabellen anlegen
 npx wrangler secret put SESSION_SECRET    # langen Zufallswert eingeben (z. B. in Keeper erzeugen)
 ```
 
-In `api/wrangler.toml` noch `ALLOWED_ORIGINS` und `ADMIN_URL` auf deine GitHub-Pages-Adresse setzen. Dann:
+In `api/wrangler.toml` stehen Domain (`routes`), `ALLOWED_ORIGINS` und `ADMIN_URL`. Dann:
 
 ```bash
-npm run deploy                            # gibt die Adresse aus, z. B. https://mobile-home-api.<name>.workers.dev
+npm run deploy                            # spielt Website + API aus (mit Versionskennung für CSS/JS)
 ```
 
 ### 2. Zugänge für die Verwaltung
@@ -51,12 +51,13 @@ npm run benutzer:remote -- anna
 
 **Passwörter bitte in Keeper erzeugen und dort ablegen**, nicht im Browser, nicht in Dateien, nicht im Chat. Mit demselben Befehl setzt du ein vergessenes Passwort neu. Angemeldete Personen können ihr Passwort auch selbst in der Verwaltung ändern.
 
-### 3. Website (GitHub Pages)
-1. Die API-Adresse aus Schritt 1 in `site/einstellungen.js` bei `apiUrl` eintragen. Den `localhost`-Teil kannst du stehen lassen:
-   `apiUrl: location.hostname === "localhost" ? "http://localhost:8787" : "https://mobile-home-api.<name>.workers.dev",`
-2. Den Ordner als GitHub-Repo pushen.
-3. Im Repo unter **Settings → Pages → Source** „GitHub Actions" wählen. Jeder Push auf `main` veröffentlicht dann `site/`.
-4. Optional automatisches Ausspielen der API: In GitHub unter **Settings → Secrets → Actions** die Secrets `CLOUDFLARE_API_TOKEN` und `CLOUDFLARE_ACCOUNT_ID` anlegen.
+### 3. Website und Security-Header (Cloudflare)
+Website und API laufen im **selben Cloudflare-Worker** unter `https://mobile-home-privlaka.com`. Die Seiten kommen aus `site/`, die API unter `/api/…`.
+- **Ausspielen:** `cd api` → `npm run deploy`. Änderungen an `site/` oder `api/` sind danach sofort live.
+- **Automatisch bei jedem Push** (optional): In GitHub unter **Settings → Secrets and variables → Actions** die Secrets `CLOUDFLARE_API_TOKEN` (Rechte: Workers Scripts Edit, D1 Edit, Workers Routes Edit) und `CLOUDFLARE_ACCOUNT_ID` anlegen. Ohne diese wird der Workflow übersprungen.
+- **Domain:** Cloudflare verwaltet DNS und HTTPS-Zertifikat der eigenen Domain selbst (`routes` in `wrangler.toml`). `www.` und `…workers.dev` leiten zur Domain weiter.
+- **Security-Header** (in `api/src/index.js`, Funktionen `grundHeader` und `websiteCsp`): HSTS, Content-Security-Policy (Skripte nur mit Einmal-Schlüssel/Nonce, Kartenkacheln nur von OpenStreetMap), X-Frame-Options DENY, X-Content-Type-Options nosniff, Referrer-Policy, Permissions-Policy, Cross-Origin-Opener-/Resource-Policy. Verwaltung und Anmeldung werden nie zwischengespeichert, `/admin` hat `noindex`.
+- **Neue externe Dienste** (z. B. ein eingebettetes Video) blockiert die CSP zunächst. Dann die CSP in `websiteCsp` gezielt erweitern.
 
 ### 4. Automatische E-Mails (Eingangsbestätigung an Gäste + Benachrichtigung an dich)
 Bei jeder neuen Anfrage gehen gleichzeitig zwei Mails raus:
@@ -157,14 +158,10 @@ npm install
 npm run db:init:local
 # .dev.vars anlegen mit:  SESSION_SECRET=<mind. 32 zufällige Zeichen>
 npm run benutzer:local -- test
-npm run dev                         # API auf http://localhost:8787
-
-# zweites Terminal:
-cd site
-npx http-server -p 8080 -c-1        # Website auf http://localhost:8080, Verwaltung unter /admin/
+npm run dev                         # Website + API auf http://localhost:8787, Verwaltung unter /admin/
 ```
 
-Unter `localhost` nutzt die Website automatisch die lokale API.
+Lokal laufen Website und API zusammen wie live, inklusive Security-Header (HSTS nur unter https).
 
 ## Vor dem Livegang
 - [x] `impressum.html` und `datenschutz.html` ausfüllen
