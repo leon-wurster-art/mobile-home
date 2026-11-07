@@ -214,7 +214,15 @@ a.kontakt-card:focus-visible{outline:2px solid var(--primary);outline-offset:2px
 .cal-month-title{text-align:center;font-weight:600;font-size:.92rem;margin-bottom:10px}
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
 .cal-wd{font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted-foreground);text-align:center;padding:6px 0}
-.cal-day{position:relative;aspect-ratio:1;border:none;background:transparent;font:inherit;font-size:.85rem;border-radius:9px;cursor:pointer;color:var(--foreground);transition:background .12s}
+.cal-day{position:relative;aspect-ratio:1;border:none;background:transparent;font:inherit;font-size:.85rem;border-radius:9px;cursor:pointer;color:var(--foreground);transition:background .12s;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:0;line-height:1.15;min-width:0}
+/* Preis pro Nacht unter dem Datum (wie bei Booking) */
+.cal-day .p{font-size:.6rem;font-weight:500;color:var(--muted-foreground);letter-spacing:-.02em;white-space:nowrap;font-variant-numeric:tabular-nums}
+.cal-day.in-range .p{color:var(--primary)}
+.cal-day.sel-start .p,.cal-day.sel-end .p{color:rgba(255,255,255,.85)}
+.cal-day.sel-end:not(.sel-start) .p{visibility:hidden}   /* Abreisetag: diese Nacht ist nicht Teil des Aufenthalts */
+@media(max-width:380px){.cal-day .p{font-size:.54rem}}
+.lg-price{font-style:normal;font-size:.6rem;font-weight:600;color:var(--muted-foreground);width:14px;height:14px;display:inline-grid;place-items:center;border:1px solid var(--input);border-radius:4px}
 .cal-day:hover:not(:disabled):not(.sel-start):not(.sel-end){background:var(--muted)}
 .cal-day:focus-visible{outline:2px solid var(--primary);outline-offset:1px}
 .cal-day:disabled{color:#c3ccd0;cursor:default}
@@ -227,7 +235,7 @@ a.kontakt-card:focus-visible{outline:2px solid var(--primary);outline-offset:2px
 .cal-day.sel-start{border-radius:9px 0 0 9px}
 .cal-day.sel-end{border-radius:0 9px 9px 0}
 .cal-day.sel-start.sel-end{border-radius:9px}
-.cal-day.today::before{content:"";position:absolute;bottom:5px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:var(--accent)}
+.cal-day.today::before{content:"";position:absolute;top:4px;right:5px;width:5px;height:5px;border-radius:50%;background:var(--accent)}
 .cal-legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid var(--border);font-size:.78rem;color:var(--muted-foreground)}
 .cal-legend span{display:inline-flex;align-items:center;gap:7px}
 .lg{width:14px;height:14px;border-radius:4px;display:inline-block}

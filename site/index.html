@@ -183,6 +183,7 @@
         <span><i class="lg lg-free"></i> <span data-i18n="cal.free">frei</span></span>
         <span><i class="lg lg-blocked"></i> <span data-i18n="cal.booked">belegt</span></span>
         <span><i class="lg lg-sel"></i> <span data-i18n="cal.sel">deine Auswahl</span></span>
+        <span><i class="lg-price">€</i> <span data-i18n="cal.priceNote">Preis pro Nacht</span></span>
       </div>
     </div>
 
@@ -592,11 +593,21 @@
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "cal-day";
-      btn.textContent = day;
+      const zahl = document.createElement("span");
+      zahl.className = "d"; zahl.textContent = day;
+      btn.appendChild(zahl);
       if (same(d, heute)) btn.classList.add("today");
 
       const past = d < heute, blocked = nightBlocked(d), closed = !blocked && nightClosed(d);
       if (blocked) btn.classList.add("blocked"); else if (closed) btn.classList.add("closed");
+
+      // Wie bei Booking: Preis der Nacht unter dem Datum (nur für buchbare Nächte)
+      const nachtPreis = P && !past && !blocked && !closed ? preisFuerNacht(d) : null;
+      if (nachtPreis != null && (!waehltAbreise || d < limit)) {
+        const pr = document.createElement("span");
+        pr.className = "p"; pr.textContent = euro(nachtPreis);
+        btn.appendChild(pr);
+      }
 
       let disabled;
       if (!waehltAbreise || d < selStart) {
@@ -615,6 +626,7 @@
 
       let label = fmt(d);
       if (blocked) label += ", " + t("cal.dayBooked"); else if (closed && !past) label += ", " + t("cal.dayClosed");
+      else if (nachtPreis != null) label += ", " + euro(nachtPreis) + " (" + t("cal.priceNote") + ")";
       btn.setAttribute("aria-label", label);
 
       btn.addEventListener("click", () => onDayClick(d));
