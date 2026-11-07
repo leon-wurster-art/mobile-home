@@ -120,6 +120,14 @@ Fertig, ohne neues Ausspielen.
 4. Test-Anfrage in der Verwaltung **löschen**.
 5. Kommt nichts an: Brevo → **Transactional → Logs** ansehen, oder im Terminal `npx wrangler tail` laufen lassen und erneut testen.
 
+**Schritt 9 – No-Reply-Adresse (automatische Rückantwort)**
+Alle automatischen Mails haben als Antwortadresse `noreply@mobile-home-privlaka.com` und den Hinweis „bitte nicht antworten“. Antwortet trotzdem jemand, bekommt er automatisch einen Hinweis mit euren Kontaktdaten (DE/EN/HR/SL). Die Nachricht selbst wird nicht gelesen oder gespeichert.
+1. dash.cloudflare.com → **mobile-home-privlaka.com** → **E-Mail → Email Routing**. Falls noch nicht aktiv: **Aktivieren**.
+2. **Routing rules → Create address**: Custom address `noreply`, Action **„Send to a Worker“**, Ziel **mobile-home-api** → **Save**.
+3. Test: von deiner privaten Adresse eine Mail an `noreply@mobile-home-privlaka.com` schicken. Nach kurzer Zeit kommt die automatische Antwort, pro Absender höchstens eine pro Tag.
+
+**Automatische Absage:** „Ablehnen“ in der Verwaltung schickt dem Gast nach einer Rückfrage automatisch eine Absage in seiner Sprache, mit Link zu den freien Terminen. Im Bearbeiten-Fenster lässt sich das abwählen, z. B. bei Spam.
+
 Ohne Schlüssel funktioniert alles weiter, nur ohne automatische Mails. Alternativ geht **Resend** mit `RESEND_API_KEY`. Dann den Abschnitt in `datenschutz.html` anpassen.
 
 Schutz gegen Missbrauch: höchstens 5 Anfragen pro Stunde je Anschluss, höchstens 40 automatische Gäste-Mails pro Tag. Im Gruß wird nur der Vorname verwendet, nichts, was nach Link aussieht.
